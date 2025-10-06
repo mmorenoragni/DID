@@ -1,14 +1,14 @@
 {
   "assertionMethod": [
-    "did:web:mmorenoragni.github.io:DID:moreno#key-0"
+    "did:web:mmorenoragni.github.io:DID:moreno"
   ],
   "service": [],
   "id": "did:web:mmorenoragni.github.io:DID:moreno",
   "verificationMethod": [
     {
-      "publicKeyMultibase": "z6Mkv7sDwcMr75BrLmaHjHy25kgBMyGrF2EaTEujKXm9EBAg",
+      "publicKeyMultibase": "z6MkjzMpofxZoTuRqDKEEkNS9eRT6kFhKDXL5rXVbE7iZh2Y",
       "controller": "did:web:mmorenoragni.github.io:DID:moreno",
-      "id": "did:web:mmorenoragni.github.io:DID:moreno#key-0",
+      "id": "did:web:mmorenoragni.github.io:DID:moreno#z7INkZuRK3ywCEFO3gS6OEr14DBzE8FspRmNyK1j3rs",
       "type": "Ed25519VerificationKey2020",
       "@context": "https://w3id.org/security/suites/ed25519-2020/v1"
     }
@@ -18,6 +18,6 @@
   ],
   "alsoKnownAs": [],
   "authentication": [
-    "did:web:mmorenoragni.github.io:DID:moreno#key-0"
+    "did:web:mmorenoragni.github.io:DID:moreno"
   ]
 }
