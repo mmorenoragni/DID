@@ -6,7 +6,7 @@
   "id": "did:web:mmorenoragni.github.io:DID:moreno",
   "verificationMethod": [
     {
-      "publicKeyMultibase": "z6MkiFUXuP3TSk14xkJqgSxmKbVnLmdC9fqGP2X84FmWNU2T",
+      "publicKeyMultibase": "z6MkkSBEMkP4qeSpBktgQ5MCDX55ZnqRxEuPSPpu1MVkRuo3",
       "controller": "did:web:mmorenoragni.github.io:DID:moreno",
       "id": "did:web:mmorenoragni.github.io:DID:moreno#oHZHzKlouILPbELKlURQaGrWHLCA1yFSwdlNyuREPKs",
       "type": "Ed25519VerificationKey2020",
