@@ -6,9 +6,9 @@
   "id": "did:web:mmorenoragni.github.io:DID:moreno",
   "verificationMethod": [
     {
-      "publicKeyMultibase": "z6MkpCHnTjmKt6XomcuDH7caVEYNctRXRJuN6746L31bW22p",
+      "publicKeyMultibase": "z6MkkcQaFYh9Cx8NCnkWsNdxneFBhVa1M7U47wGz5BL4v6BG",
       "controller": "did:web:mmorenoragni.github.io:DID:moreno",
-      "id": "did:web:mmorenoragni.github.io:DID:moreno#3oW84pL_I7JU8SmrPcx5RF1KV5xPWZsN2QoWjtbUlEQ",
+      "id": "did:web:mmorenoragni.github.io:DID:moreno#-Aak8TsY8hIROsmudxuMDJzWyn_Uve01z0Q_s3aJ_Qc",
       "type": "Ed25519VerificationKey2020",
       "@context": "https://w3id.org/security/suites/ed25519-2020/v1"
     }
