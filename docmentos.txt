@@ -1,0 +1,21 @@
+DECLARE
+    v_cursor SYS_REFCURSOR;
+    -- Declaramos variables para capturar una fila (opcional, solo para verificar)
+    v_cui    VARCHAR2(100);
+    v_nombre VARCHAR2(200);
+BEGIN
+    -- Llamada al procedimiento
+    SP_ACTA_NACIMIENTO(1005583752, v_cursor);
+
+    -- Intentamos leer la primera fila para validar que trae datos
+    FETCH v_cursor INTO v_cui, v_nombre, /* ... el resto de columnas ... */;
+
+    IF v_cursor%FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Resultado encontrado para CUI: ' || v_cui);
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('No se encontraron datos para esa acta.');
+    END IF;
+
+    CLOSE v_cursor;
+END;
+/
