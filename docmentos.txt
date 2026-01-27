@@ -1,21 +1,66 @@
 DECLARE
     v_cursor SYS_REFCURSOR;
-    -- Declaramos variables para capturar una fila (opcional, solo para verificar)
     v_cui    VARCHAR2(100);
     v_nombre VARCHAR2(200);
 BEGIN
-    -- Llamada al procedimiento
     SP_ACTA_NACIMIENTO(1005583752, v_cursor);
-
-    -- Intentamos leer la primera fila para validar que trae datos
-    FETCH v_cursor INTO v_cui, v_nombre, /* ... el resto de columnas ... */;
-
+    FETCH v_cursor INTO v_cui, v_nombre
     IF v_cursor%FOUND THEN
         DBMS_OUTPUT.PUT_LINE('Resultado encontrado para CUI: ' || v_cui);
     ELSE
         DBMS_OUTPUT.PUT_LINE('No se encontraron datos para esa acta.');
     END IF;
+    CLOSE v_cursor;
+END;
+/
+
+segunda consulta:
+SET SERVEROUTPUT ON;
+
+DECLARE
+    v_cursor SYS_REFCURSOR;
+    -- Creamos un registro que tenga la misma estructura que la consulta del cursor
+    TYPE t_registro IS RECORD (
+        nu_cui                 VARCHAR2(100),
+        de_pre_nombres         VARCHAR2(200),
+        de_primer_apellido     VARCHAR2(200),
+        de_segundo_apellido    VARCHAR2(200),
+        fe_nacimiento          DATE,
+        vinculo_prog1          VARCHAR2(200),
+        tipo_doc_prog1         VARCHAR2(200),
+        num_doc_prog1          VARCHAR2(100),
+        vinculo_prog2          VARCHAR2(200),
+        tipo_doc_prog2         VARCHAR2(200),
+        num_doc_prog2          VARCHAR2(100),
+        imagen_anverso         BLOB, -- Cambiar a LONG o VARCHAR2 si no es BLOB
+        imagen_reverso         BLOB
+    );
+    r_datos t_registro;
+    v_encontrado BOOLEAN := FALSE;
+BEGIN
+    -- 1. Llamada al procedimiento
+    SP_ACTA_NACIMIENTO(1005583752, v_cursor);
+
+    -- 2. Fetch de todas las columnas en el registro
+    LOOP
+        FETCH v_cursor INTO r_datos;
+        EXIT WHEN v_cursor%NOTFOUND;
+
+        v_encontrado := TRUE;
+        DBMS_OUTPUT.PUT_LINE('Resultado encontrado!');
+        DBMS_OUTPUT.PUT_LINE('CUI: ' || r_datos.nu_cui);
+        DBMS_OUTPUT.PUT_LINE('Nombre: ' || r_datos.de_pre_nombres || ' ' || r_datos.de_primer_apellido);
+        DBMS_OUTPUT.PUT_LINE('Vínculo 1: ' || r_datos.vinculo_prog1);
+    END LOOP;
+
+    IF NOT v_encontrado THEN
+        DBMS_OUTPUT.PUT_LINE('No se encontraron datos para esa acta.');
+    END IF;
 
     CLOSE v_cursor;
+EXCEPTION
+    WHEN OTHERS THEN
+        IF v_cursor%ISOPEN THEN CLOSE v_cursor; END IF;
+        RAISE;
 END;
 /
