@@ -1,0 +1,50 @@
+CREATE OR REPLACE PROCEDURE SP_GET_RECTIFICACION_MAT (
+    p_nu_acta IN NUMBER,               -- Parámetro de entrada
+    p_recordset OUT SYS_REFCURSOR      -- Parámetro de salida (cursor)
+) AS
+BEGIN
+    OPEN p_recordset FOR
+        SELECT
+            J.NU_ACTA_MATRIMONIO,
+            J.DE_MATERIA,
+            J.DE_TRANSCRIPCION
+        FROM
+            IDORRCC.RCTV_ACTA_RECTIFICACION_MAT J
+        INNER JOIN
+            IDORRCC.RCTR_MATRIMONIOS_PROCESOS P
+            ON J.CO_PROCESO_MATRIMONIO = P.CO_PROCESO_MATRIMONIO
+        WHERE
+            J.NU_ACTA_MATRIMONIO = p_nu_acta
+            AND NVL(J.IN_LINEA, ' ') = '1'
+            AND J.ES_REGISTRO = '1'
+            AND NVL(P.IN_IMPRIME_AM, ' ') = '1';
+END SP_GET_RECTIFICACION_MAT;
+/
+DECLARE
+    v_cursor  SYS_REFCURSOR;
+    -- Variables basadas en el tipo de dato de la tabla
+    v_acta    IDORRCC.RCTV_ACTA_RECTIFICACION_MAT.NU_ACTA_MATRIMONIO%TYPE;
+    v_materia IDORRCC.RCTV_ACTA_RECTIFICACION_MAT.DE_MATERIA%TYPE;
+    v_trans   IDORRCC.RCTV_ACTA_RECTIFICACION_MAT.DE_TRANSCRIPCION%TYPE;
+    v_existe  BOOLEAN := FALSE;
+BEGIN
+    -- Llamamos al procedimiento con un número de acta de ejemplo
+    SP_GET_RECTIFICACION_MAT(3000491955, v_cursor);
+
+    LOOP
+        FETCH v_cursor INTO v_acta, v_materia, v_trans;
+        EXIT WHEN v_cursor%NOTFOUND;
+
+        v_existe := TRUE;
+        DBMS_OUTPUT.PUT_LINE('Acta: ' || v_acta);
+        DBMS_OUTPUT.PUT_LINE('Materia: ' || v_materia);
+        DBMS_OUTPUT.PUT_LINE('Transcripción: ' || SUBSTR(v_trans, 1, 100) || '...');
+    END LOOP;
+
+    IF NOT v_existe THEN
+        DBMS_OUTPUT.PUT_LINE('No se encontró rectificación para el acta indicada.');
+    END IF;
+
+    CLOSE v_cursor;
+END;
+/
