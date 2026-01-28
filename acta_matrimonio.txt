@@ -31,3 +31,30 @@ BEGIN
             M.CO_ESTADO_ACTA_MATRIMONIO = '1'
             AND M.NU_ACTA_MATRIMONIO = p_nu_acta; -- Filtro por parámetro
 END SP_ACTA_MATRIMONIO;
+---------------------------------------------------------------------
+DECLARE
+    v_cursor SYS_REFCURSOR;
+    -- Definimos el registro con las 8 columnas del SELECT
+    TYPE t_matrimonio IS RECORD (
+        fe_celebra      DATE,
+        lugar           VARCHAR2(4000),
+        tdoc_c1         VARCHAR2(100),
+        ndoc_c1         VARCHAR2(100),
+        tdoc_c2         VARCHAR2(100),
+        ndoc_c2         VARCHAR2(100),
+        img_anv         BLOB,
+        img_rev         BLOB
+    );
+    r_reg t_matrimonio;
+BEGIN
+    SP_ACTA_MATRIMONIO(12345678, v_cursor); -- Reemplaza con un acta real
+
+    LOOP
+        FETCH v_cursor INTO r_reg;
+        EXIT WHEN v_cursor%NOTFOUND;
+        DBMS_OUTPUT.PUT_LINE('Lugar: ' || r_reg.lugar || ' - Fecha: ' || r_reg.fe_celebra);
+    END LOOP;
+
+    CLOSE v_cursor;
+END;
+/
