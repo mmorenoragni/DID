@@ -1,0 +1,7 @@
+SELECT owner, table_name, object_type
+FROM all_objects
+WHERE owner IN ('IDOTABMAESTRA', 'IMAGADM')
+  AND object_name IN ('GETM_ANI', 'GETR_DOMINIOS', 'GETR_ESTADO_CIVIL',
+                     'GETR_GRUPO_FACTOR_SANGUINEO', 'GEVW_UBIGEOS',
+                     'IDTP_IMAGENES', 'IDTP_IMAGEN_MENOR')
+ORDER BY owner, object_name;
