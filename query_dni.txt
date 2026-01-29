@@ -1,0 +1,86 @@
+PROCEDURE WSSP_OBT_DATOS_DNI(
+        p_vNU_DNI       IN  VARCHAR2,   -- Prefijo 'v' para Varchar2
+        p_crRETORNO     OUT cur_salida  -- Prefijo 'cr' para Cursor
+    ) IS
+    BEGIN
+        OPEN p_crRETORNO FOR
+            SELECT
+                -- 1. IDENTIFICACIÓN
+                A.NU_DNI,
+                A.CO_DIGITO_VERIFICACION,
+                A.PRENOM_INSCRITO       AS NOMBRES,
+                A.AP_PRIMER             AS PRIMER_APELLIDO,
+                A.AP_SEGUNDO            AS SEGUNDO_APELLIDO,
+                A.AP_CASADA             AS APELLIDO_CASADA,
+                A.FE_NACIMIENTO,
+                A.FE_INSCRIPCION,
+                A.FE_EMISION,
+                A.FE_CADUCIDAD,
+
+                -- 2. DOMINIOS DECODIFICADOS
+                (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
+                  WHERE D.CO_DOM = A.CO_SEXO AND D.CO_DOMINIO = 'TIPO_SEXO') AS GENERO,
+
+                (SELECT E.DE_ESTADO_CIVIL FROM IDOTABMAESTRA.GETR_ESTADO_CIVIL E
+                  WHERE E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL) AS ESTADO_CIVIL,
+
+                (SELECT G.DE_GRUPO_FACTOR FROM IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO G
+                  WHERE G.CO_GRUPO_FACTOR = A.CO_GRUPO_FACTOR_SANGUINEO) AS GRUPO_SANGUINEO,
+
+                -- 3. UBIGEO (Concatenado Código para Fila 8)
+                A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC AS UBIGEO_NAC_CODIGO,
+
+                -- Descripción Lugar Nacimiento (Fila 7) - Usando Vista si existe o Joins
+                (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
+                  WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC
+                    AND ROWNUM = 1) AS LUGAR_NACIMIENTO_DESC,
+
+                -- 4. DOMICILIO
+                A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO AS UBIGEO_DOM_CODIGO,
+                A.CO_CENTRO_POBLADO_DOMICILIO,
+
+                -- Dirección concatenada (Fila 14)
+                TRIM(
+                    (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
+                      WHERE D.CO_DOM = A.DE_PREF_DIRECCION AND D.CO_DOMINIO = 'DE_PREF_DIRECCION')
+                    || ' ' || A.DE_DIRECCION || ' ' || A.NU_DIRECCION || ' ' ||
+                    CASE WHEN A.DE_MANZANA IS NOT NULL THEN 'MZ ' || A.DE_MANZANA ELSE '' END || ' ' ||
+                    CASE WHEN A.DE_LOTE_DIRECCION IS NOT NULL THEN 'LT ' || A.DE_LOTE_DIRECCION ELSE '' END
+                ) AS DIRECCION_COMPLETA,
+
+                -- 5. FOTO (Logica Fila 11: Cruzar Mayor o Menor)
+                COALESCE(IMG_MAY.IM_FOTO, IMG_MEN.IM_FOTO_MENOR) AS IM_FOTO,
+
+                -- 6. OTROS DATOS
+                A.CO_GRUPO_VOTACION,
+                A.IN_DONACION_ORGANOS,
+                A.CO_RESTRICCION,
+                A.DE_OBS_DNI AS OBSERVACIONES,
+
+                -- Datos Padres
+                A.CO_TIPO_DOC_PADRE, A.NU_DOC_PADRE,
+                A.CO_TIPO_DOC_MADRE, A.NU_DOC_MADRE,
+
+                'PER' AS NACIONALIDAD
+
+            FROM IDOTABMAESTRA.GETM_ANI A
+
+            -- JOIN FOTOS MAYORES (IMAGADM.IDTP_IMAGENES)
+            LEFT JOIN IMAGADM.IDTP_IMAGENES IMG_MAY
+                   ON IMG_MAY.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MAY.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+
+            -- JOIN FOTOS MENORES (IMAGADM.IDTP_IMAGEN_MENOR)
+            LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR IMG_MEN
+                   ON IMG_MEN.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MEN.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+
+            WHERE A.NU_DNI = p_vNU_DNI; -- Variable corregida
+
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Error WSSP_OBT_DATOS_DNI: ' || SQLERRM);
+    END WSSP_OBT_DATOS_DNI;
+
+END WSPK_CONSULTA_DNI;
+/
