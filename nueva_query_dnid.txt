@@ -1,0 +1,96 @@
+CREATE OR REPLACE PACKAGE IDOTABMAESTRA.WSPK_CONSULTA_IDENTIDAD AS
+    -- Definimos el tipo de cursor de salida
+    TYPE cur_salida IS REF CURSOR;
+
+    PROCEDURE WSSP_OBT_DATOS_CIUDADANO(
+        p_vNU_DNI       IN  VARCHAR2,   -- DNI a consultar
+        p_crRETORNO     OUT cur_salida  -- Cursor con los 27 campos del Excel
+    );
+END WSPK_CONSULTA_IDENTIDAD;
+/
+
+CREATE OR REPLACE PACKAGE BODY IDOTABMAESTRA.WSPK_CONSULTA_IDENTIDAD AS
+
+    PROCEDURE WSSP_OBT_DATOS_CIUDADANO(
+        p_vNU_DNI       IN  VARCHAR2,
+        p_crRETORNO     OUT cur_salida
+    ) IS
+    BEGIN
+        OPEN p_crRETORNO FOR
+            SELECT
+                -- (01) al (05) Identidad
+                A.NU_DNI                AS "CODIGO_UNICO_IDENTIFICACION",
+                A.PRENOM_INSCRITO       AS "NOMBRES",
+                A.AP_PRIMER             AS "APELLIDO_PATERNO",
+                A.AP_SEGUNDO            AS "APELLIDO_MATERNO",
+                A.AP_CASADA             AS "APELLIDO_CASADA",
+
+                -- (06) al (08) Nacimiento
+                A.FE_NACIMIENTO         AS "FECHA_NACIMIENTO",
+                (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
+                  WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC
+                    AND ROWNUM = 1)     AS "LUGAR_NACIMIENTO_DESC",
+                A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC AS "UBIGEO_NAC_CODIGO",
+
+                -- (09) al (10) Estado
+                (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
+                  WHERE D.CO_DOM = A.CO_SEXO AND D.CO_DOMINIO = 'TIPO_SEXO') AS "SEXO",
+                (SELECT E.DE_ESTADO_CIVIL FROM IDOTABMAESTRA.GETR_ESTADO_CIVIL E
+                  WHERE E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL) AS "ESTADO_CIVIL",
+
+                -- (11) Multimedia
+                COALESCE(IMG_MAY.IM_FOTO, IMG_MEN.IM_FOTO_MENOR) AS "FOTO_JPG",
+
+                -- (12) al (14) Domicilio
+                A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO AS "UBIGEO_DOM_CODIGO",
+                (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
+                  WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO
+                    AND ROWNUM = 1)     AS "LUGAR_DOMICILIO_DESC",
+                TRIM(
+                    (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D WHERE D.CO_DOM = A.DE_PREF_DIRECCION AND D.CO_DOMINIO = 'DE_PREF_DIRECCION')
+                    || ' ' || A.DE_DIRECCION || ' ' || A.NU_DIRECCION || ' ' ||
+                    CASE WHEN A.DE_MANZANA IS NOT NULL THEN 'MZ ' || A.DE_MANZANA ELSE '' END || ' ' ||
+                    CASE WHEN A.DE_LOTE_DIRECCION IS NOT NULL THEN 'LT ' || A.DE_LOTE_DIRECCION ELSE '' END
+                )                       AS "DOMICILIO_DIRECCION",
+
+                -- (15) al (17) Salud y Observaciones
+                (SELECT G.DE_GRUPO_FACTOR FROM IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO G
+                  WHERE G.CO_GRUPO_FACTOR = A.CO_GRUPO_FACTOR_SANGUINEO) AS "GRUPO_FACTOR_SANGUINEO",
+                A.DE_OBS_DNI            AS "OBSERVACIONES",
+                A.CO_RESTRICCION        AS "RESTRICCION",
+
+                -- (18) al (19) Vigencia
+                A.FE_EMISION            AS "FECHA_EMISION",
+                A.FE_CADUCIDAD          AS "FECHA_CADUCIDAD",
+
+                -- (20) al (23) Padres
+                A.CO_TIPO_DOC_PADRE     AS "TIPO_DOC_PADRE",
+                A.NU_DOC_PADRE          AS "NUMERO_DOC_PADRE",
+                A.CO_TIPO_DOC_MADRE     AS "TIPO_DOC_MADRE",
+                A.NU_DOC_MADRE          AS "NUMERO_DOC_MADRE",
+
+                -- (25) al (27) Contacto
+                'PERUANA'               AS "NACIONALIDAD",
+                A.DE_CORREO             AS "CORREO_ELECTRONICO",
+                A.NU_CELULAR            AS "CELULAR"
+
+            FROM IDOTABMAESTRA.GETM_ANI A
+            LEFT JOIN IMAGADM.IDTP_IMAGENES IMG_MAY
+                   ON IMG_MAY.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MAY.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+            LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR IMG_MEN
+                   ON IMG_MEN.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MEN.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+            WHERE A.NU_DNI = p_vNU_DNI;
+
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Error en WSSP_OBT_DATOS_CIUDADANO: ' || SQLERRM);
+    END WSSP_OBT_DATOS_CIUDADANO;
+
+END WSPK_CONSULTA_IDENTIDAD;
+/
+
+VAR r REFCURSOR;
+EXEC IDOTABMAESTRA.WSPK_CONSULTA_IDENTIDAD.WSSP_OBT_DATOS_CIUDADANO('12345678', :r);
+PRINT r;
