@@ -1,4 +1,4 @@
-PROCEDURE WSSP_OBT_DATOS_DNI(
+CREATE OR REPLACE PROCEDURE WSSP_OBT_DATOS_DNI(
         p_vNU_DNI       IN  VARCHAR2,   -- Prefijo 'v' para Varchar2
         p_crRETORNO     OUT cur_salida  -- Prefijo 'cr' para Cursor
     ) IS
