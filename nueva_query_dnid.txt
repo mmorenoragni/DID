@@ -1,84 +1,139 @@
-CREATE OR REPLACE PROCEDURE WSSP_OBT_DATOS_DNI(
-        p_vNU_DNI       IN  VARCHAR2,   -- Prefijo 'v' para Varchar2
-        p_crRETORNO     OUT cur_salida  -- Prefijo 'cr' para Cursor
-    ) IS
-    BEGIN
-        OPEN p_crRETORNO FOR
-            SELECT
-                -- 1. IDENTIFICACIÓN
-                A.NU_DNI,
-                A.CO_DIGITO_VERIFICACION,
-                A.PRENOM_INSCRITO       AS NOMBRES,
-                A.AP_PRIMER             AS PRIMER_APELLIDO,
-                A.AP_SEGUNDO            AS SEGUNDO_APELLIDO,
-                A.AP_CASADA             AS APELLIDO_CASADA,
-                A.FE_NACIMIENTO,
-                A.FE_INSCRIPCION,
-                A.FE_EMISION,
-                A.FE_CADUCIDAD,
+SELECT
+    -- (01) Código Único de Identificación-CUI - Número DNI
+    a.NU_DNI                    AS cui_numero_dni,
 
-                -- 2. DOMINIOS DECODIFICADOS
-                (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
-                  WHERE D.CO_DOM = A.CO_SEXO AND D.CO_DOMINIO = 'TIPO_SEXO') AS GENERO,
+    -- (02) Nombres
+    a.PRENOM_INSCRITO           AS nombres,
 
-                (SELECT E.DE_ESTADO_CIVIL FROM IDOTABMAESTRA.GETR_ESTADO_CIVIL E
-                  WHERE E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL) AS ESTADO_CIVIL,
+    -- (03) Apellido paterno
+    a.AP_PRIMER                 AS apellido_paterno,
 
-                (SELECT G.DE_GRUPO_FACTOR FROM IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO G
-                  WHERE G.CO_GRUPO_FACTOR = A.CO_GRUPO_FACTOR_SANGUINEO) AS GRUPO_SANGUINEO,
+    -- (04) Apellido materno
+    a.AP_SEGUNDO                AS apellido_materno,
 
-                -- 3. UBIGEO (Concatenado Código para Fila 8)
-                A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC AS UBIGEO_NAC_CODIGO,
+    -- (05) Apellido de casada
+    a.AP_CASADA                 AS apellido_casada,
 
-                -- Descripción Lugar Nacimiento (Fila 7) - Usando Vista si existe o Joins
-                (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
-                  WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC
-                    AND ROWNUM = 1) AS LUGAR_NACIMIENTO_DESC,
+    -- (06) Fecha de nacimiento
+    a.FE_NACIMIENTO             AS fecha_nacimiento,
 
-                -- 4. DOMICILIO
-                A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO AS UBIGEO_DOM_CODIGO,
-                A.CO_CENTRO_POBLADO_DOMICILIO,
+    -- (07) Lugar de nacimiento (Ubigeo descriptivo + cuarto nivel)
+    -- Origen: GETM_ANI + GEVW_UBIGEOS, DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM)
+    ubigeo_nac.DE_UBIGEO_CAPTU  AS lugar_nacimiento,
 
-                -- Dirección concatenada (Fila 14)
-                TRIM(
-                    (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
-                      WHERE D.CO_DOM = A.DE_PREF_DIRECCION AND D.CO_DOMINIO = 'DE_PREF_DIRECCION')
-                    || ' ' || A.DE_DIRECCION || ' ' || A.NU_DIRECCION || ' ' ||
-                    CASE WHEN A.DE_MANZANA IS NOT NULL THEN 'MZ ' || A.DE_MANZANA ELSE '' END || ' ' ||
-                    CASE WHEN A.DE_LOTE_DIRECCION IS NOT NULL THEN 'LT ' || A.DE_LOTE_DIRECCION ELSE '' END
-                ) AS DIRECCION_COMPLETA,
+    -- (08) UBIGEO de nacimiento (código)
+    -- Origen: GETM_ANI + GEVW_UBIGEOS, CO_UBIGEO (quitar guion con REPLACE si aplica)
+    ubigeo_nac.CO_UBIGEO        AS ubigeo_nacimiento,
 
-                -- 5. FOTO (Logica Fila 11: Cruzar Mayor o Menor)
-                COALESCE(IMG_MAY.IM_FOTO, IMG_MEN.IM_FOTO_MENOR) AS IM_FOTO,
+    -- (09) Sexo - Género registral
+    -- Origen: GETM_ANI + GETR_DOMINIOS (dominio TIPO_SEXO) -> DE_DOM
+    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO) AS sexo,
 
-                -- 6. OTROS DATOS
-                A.CO_GRUPO_VOTACION,
-                A.IN_DONACION_ORGANOS,
-                A.CO_RESTRICCION,
-                A.DE_OBS_DNI AS OBSERVACIONES,
+    -- (10) Estado civil
+    -- Origen: GETM_ANI + GETR_ESTADO_CIVIL
+    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL) AS estado_civil,
 
-                -- Datos Padres
-                A.CO_TIPO_DOC_PADRE, A.NU_DOC_PADRE,
-                A.CO_TIPO_DOC_MADRE, A.NU_DOC_MADRE,
+    -- (11) Fotografía (Base64/tramada)
+    -- Origen: IMAGADM - cruce por TIPO y NRO FICHA IMAGEN/FORMULARIO -> IM_FOTO, IM_FOTO_MENOR
+    img.IM_FOTO                 AS foto,
 
-                'PER' AS NACIONALIDAD
+    -- (12) UBIGEO de domicilio (código)
+    ubigeo_dom.CO_UBIGEO        AS ubigeo_domicilio,
 
-            FROM IDOTABMAESTRA.GETM_ANI A
+    -- (13) Lugar de domicilio (UBIGEO descriptivo + cuarto nivel)
+    ubigeo_dom.DE_UBIGEO_CAPTU  AS lugar_domicilio,
 
-            -- JOIN FOTOS MAYORES (IMAGADM.IDTP_IMAGENES)
-            LEFT JOIN IMAGADM.IDTP_IMAGENES IMG_MAY
-                   ON IMG_MAY.NU_FICHA      = A.NU_FICHA_INSCRIPCION
-                  AND IMG_MAY.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+    -- (14) Domicilio - Dirección domiciliaria
+    -- Origen: DE_PREF_DIRECCION, DE_DIRECCION, NU_DIRECCION, etc. (GETR_DOMINIOS)
+    a.DE_PREF_DIRECCION || ' ' || a.DE_DIRECCION || ' ' || NVL(a.NU_DIRECCION, '') AS domicilio,
 
-            -- JOIN FOTOS MENORES (IMAGADM.IDTP_IMAGEN_MENOR)
-            LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR IMG_MEN
-                   ON IMG_MEN.NU_FICHA      = A.NU_FICHA_INSCRIPCION
-                  AND IMG_MEN.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+    -- (15) Grupo y factor sanguíneo
+    -- Origen: GETM_ANI (código) + GETR_GRUPO_FACTOR_SANGUINEO -> DE_GRUPO_FACTOR
+    gfs.DE_GRUPO_FACTOR         AS grupo_factor_sanguineo,
 
-            WHERE A.NU_DNI = p_vNU_DNI; -- Variable corregida
+    -- (16) Observaciones
+    -- Origen: GETM_ANI + GETM_OBSERVACION_DNI + GETR_OBSERVACION -> DE_OBS
+    obs.DE_OBS                  AS observaciones,
 
-    EXCEPTION
-        WHEN OTHERS THEN
-            RAISE_APPLICATION_ERROR(-20002, 'Error WSSP_OBT_DATOS_DNI: ' || SQLERRM);
-    END WSSP_OBT_DATOS_DNI;
-/
+    -- (17) Restricción
+    -- Origen: GETM_ANI + GETM_RESTRICCION
+    res.DE_RESTRICCION          AS restriccion,
+
+    -- 18 - Fecha de emisión DNIe
+    a.FE_EMISION                AS fecha_emision_dnie,
+
+    -- 19 - Fecha de caducidad DNIe (si año 3000 -> 'NO CADUCA')
+    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN 'NO CADUCA' ELSE TO_CHAR(a.FE_CADUCIDAD) END AS fecha_caducidad_dnie,
+
+    -- (20) Tipo de documento del padre
+    a.CO_TIPO_DOC_PADRE         AS tipo_documento_padre,
+
+    -- (21) Número de documento del padre
+    a.NU_DOC_PADRE              AS numero_documento_padre,
+
+    -- (22) Tipo de documento de la madre
+    a.CO_TIPO_DOC_MADRE         AS tipo_documento_madre,
+
+    -- (23) Número de documento de la madre
+    a.NU_DOC_MADRE              AS numero_documento_madre,
+
+    -- 25 - Nacionalidad (Excel: no existe en RUIPN; placeholder)
+    CAST(NULL AS VARCHAR2(10))  AS nacionalidad,
+
+    -- 26 - Correo electrónico (Excel: PENDIENTE / opcional)
+    CAST(NULL AS VARCHAR2(80))  AS correo_electronico,
+
+    -- 27 - Celular (Excel: PENDIENTE; DE_CEL con DECODE según documentación)
+    CAST(NULL AS VARCHAR2(9))   AS celular
+
+FROM
+    IDOTABMAESTRA.GETM_ANI a
+
+-- Lugar de nacimiento (descriptivo + código) - vista o tabla de ubigeos
+LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEOS ubigeo_nac
+    ON ubigeo_nac.CO_CONTINENTE = a.CO_CONTINENTE_NACIMIENTO
+   AND ubigeo_nac.CO_PAIS = a.CO_PAIS_NACIMIENTO
+   AND ubigeo_nac.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_NACIMIENTO
+   AND ubigeo_nac.CO_PROVINCIA = a.CO_PROVINCIA_NACIMIENTO
+   AND ubigeo_nac.CO_DISTRITO = a.CO_DISTRITO_NACIMIENTO
+   -- Incluir cuarto nivel (CO_CC) si existe en su modelo
+   -- AND ubigeo_nac.CO_CC = a.CO_CC_NACIMIENTO
+
+-- Lugar de domicilio (descriptivo + código)
+LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEOS ubigeo_dom
+    ON ubigeo_dom.CO_CONTINENTE = a.CO_CONTINENTE_DOMICILIO
+   AND ubigeo_dom.CO_PAIS = a.CO_PAIS_DOMICILIO
+   AND ubigeo_dom.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_DOMICILIO
+   AND ubigeo_dom.CO_PROVINCIA = a.CO_PROVINCIA_DOMICILIO
+   AND ubigeo_dom.CO_DISTRITO = a.CO_DISTRITO_DOMICILIO
+
+-- Sexo (dominio TIPO_SEXO) - si se usa GETR_DOMINIOS
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
+    ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
+
+-- Estado civil
+LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec
+    ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
+
+-- Grupo y factor sanguíneo
+LEFT JOIN IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO gfs
+    ON gfs.CO_GRUPO_FACTOR = a.CO_GRUPO_FACTOR_SANGUINEO
+
+-- Observaciones (GETM_OBSERVACION_DNI + GETR_OBSERVACION)
+LEFT JOIN IDOTABMAESTRA.GETM_OBSERVACION_DNI obs_dni
+    ON obs_dni.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
+LEFT JOIN IDOTABMAESTRA.GETR_OBSERVACION obs
+    ON obs.CO_OBSERVACION = obs_dni.CO_OBSERVACION
+
+-- Restricción
+LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res
+    ON res.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
+
+-- Foto (IMAGADM - cruce por TIPO y NRO de FICHA IMAGEN o FORMULARIO)
+LEFT JOIN IDOTABMAESTRA.IMAGADM img
+    ON img.CO_TIPO_FICHA = a.CO_TIPO_FICHA  -- nombres de columnas a ajustar
+   AND img.NU_FICHA = a.NU_FICHA
+
+WHERE
+    a.NU_DNI = :p_numero_dni  -- parámetro de entrada (ej. 12345678)
+;
