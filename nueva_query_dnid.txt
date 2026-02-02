@@ -1,75 +1,84 @@
-CREATE OR REPLACE PROCEDURE WSSP_OBT_DATOS_CIUDADANO(
-    p_vNU_DNI       IN  VARCHAR2,
-    p_crRETORNO     OUT SYS_REFCURSOR
-) IS
-BEGIN
-    OPEN p_crRETORNO FOR
-        SELECT
-            -- (01) al (05) Identidad
-            A.NU_DNI                AS "CUI",
-            A.PRENOM_INSCRITO       AS "NOMBRES",
-            A.AP_PRIMER             AS "APELLIDO_PATERNO",
-            A.AP_SEGUNDO            AS "APELLIDO_MATERNO",
-            A.AP_CASADA             AS "APELLIDO_CASADA",
+CREATE OR REPLACE PROCEDURE WSSP_OBT_DATOS_DNI(
+        p_vNU_DNI       IN  VARCHAR2,   -- Prefijo 'v' para Varchar2
+        p_crRETORNO     OUT cur_salida  -- Prefijo 'cr' para Cursor
+    ) IS
+    BEGIN
+        OPEN p_crRETORNO FOR
+            SELECT
+                -- 1. IDENTIFICACIÓN
+                A.NU_DNI,
+                A.CO_DIGITO_VERIFICACION,
+                A.PRENOM_INSCRITO       AS NOMBRES,
+                A.AP_PRIMER             AS PRIMER_APELLIDO,
+                A.AP_SEGUNDO            AS SEGUNDO_APELLIDO,
+                A.AP_CASADA             AS APELLIDO_CASADA,
+                A.FE_NACIMIENTO,
+                A.FE_INSCRIPCION,
+                A.FE_EMISION,
+                A.FE_CADUCIDAD,
 
-            -- (06) al (08) Nacimiento
-            A.FE_NACIMIENTO         AS "FECHA_NACIMIENTO",
-            (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
-              WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC
-                AND ROWNUM = 1)     AS "LUGAR_NACIMIENTO_DESC",
-            A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC AS "UBIGEO_NAC_CODIGO",
+                -- 2. DOMINIOS DECODIFICADOS
+                (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
+                  WHERE D.CO_DOM = A.CO_SEXO AND D.CO_DOMINIO = 'TIPO_SEXO') AS GENERO,
 
-            -- (09) al (10) Género y Estado Civil
-            (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
-              WHERE D.CO_DOM = A.CO_SEXO AND D.CO_DOMINIO = 'TIPO_SEXO') AS "SEXO",
-            (SELECT E.DE_ESTADO_CIVIL FROM IDOTABMAESTRA.GETR_ESTADO_CIVIL E
-              WHERE E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL) AS "ESTADO_CIVIL",
+                (SELECT E.DE_ESTADO_CIVIL FROM IDOTABMAESTRA.GETR_ESTADO_CIVIL E
+                  WHERE E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL) AS ESTADO_CIVIL,
 
-            -- (11) Foto (Campo vacío por ahora para no romper el contrato de 27 campos)
-            NULL                    AS "FOTO_JPG",
+                (SELECT G.DE_GRUPO_FACTOR FROM IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO G
+                  WHERE G.CO_GRUPO_FACTOR = A.CO_GRUPO_FACTOR_SANGUINEO) AS GRUPO_SANGUINEO,
 
-            -- (12) al (14) Domicilio
-            A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO AS "UBIGEO_DOM_CODIGO",
-            (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
-              WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO
-                AND ROWNUM = 1)     AS "LUGAR_DOMICILIO_DESC",
-            TRIM(
-                (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D WHERE D.CO_DOM = A.DE_PREF_DIRECCION AND D.CO_DOMINIO = 'DE_PREF_DIRECCION')
-                || ' ' || A.DE_DIRECCION || ' ' || A.NU_DIRECCION || ' ' ||
-                CASE WHEN A.DE_MANZANA IS NOT NULL THEN 'MZ ' || A.DE_MANZANA ELSE '' END || ' ' ||
-                CASE WHEN A.DE_LOTE_DIRECCION IS NOT NULL THEN 'LT ' || A.DE_LOTE_DIRECCION ELSE '' END
-            )                       AS "DOMICILIO_DIRECCION",
+                -- 3. UBIGEO (Concatenado Código para Fila 8)
+                A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC AS UBIGEO_NAC_CODIGO,
 
-            -- (15) al (17) Salud y Observaciones
-            (SELECT G.DE_GRUPO_FACTOR FROM IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO G
-              WHERE G.CO_GRUPO_FACTOR = A.CO_GRUPO_FACTOR_SANGUINEO) AS "GRUPO_FACTOR_SANGUINEO",
-            A.DE_OBS_DNI            AS "OBSERVACIONES",
-            A.CO_RESTRICCION        AS "RESTRICCION",
+                -- Descripción Lugar Nacimiento (Fila 7) - Usando Vista si existe o Joins
+                (SELECT U.DE_UBIGEO_CAPTU FROM IDOTABMAESTRA.GEVW_UBIGEOS U
+                  WHERE U.CO_UBIGEO = A.CO_DEPARTAMENTO_NAC || A.CO_PROVINCIA_NAC || A.CO_DISTRITO_NAC
+                    AND ROWNUM = 1) AS LUGAR_NACIMIENTO_DESC,
 
-            -- (18) al (19) Vigencia
-            A.FE_EMISION            AS "FECHA_EMISION",
-            A.FE_CADUCIDAD          AS "FECHA_CADUCIDAD",
+                -- 4. DOMICILIO
+                A.CO_DEPARTAMENTO_DOMICILIO || A.CO_PROVINCIA_DOMICILIO || A.CO_DISTRITO_DOMICILIO AS UBIGEO_DOM_CODIGO,
+                A.CO_CENTRO_POBLADO_DOMICILIO,
 
-            -- (20) al (23) Padres
-            A.CO_TIPO_DOC_PADRE     AS "TIPO_DOC_PADRE",
-            A.NU_DOC_PADRE          AS "NUMERO_DOC_PADRE",
-            A.CO_TIPO_DOC_MADRE     AS "TIPO_DOC_MADRE",
-            A.NU_DOC_MADRE          AS "NUMERO_DOC_MADRE",
+                -- Dirección concatenada (Fila 14)
+                TRIM(
+                    (SELECT D.DE_DOM FROM IDOTABMAESTRA.GETR_DOMINIOS D
+                      WHERE D.CO_DOM = A.DE_PREF_DIRECCION AND D.CO_DOMINIO = 'DE_PREF_DIRECCION')
+                    || ' ' || A.DE_DIRECCION || ' ' || A.NU_DIRECCION || ' ' ||
+                    CASE WHEN A.DE_MANZANA IS NOT NULL THEN 'MZ ' || A.DE_MANZANA ELSE '' END || ' ' ||
+                    CASE WHEN A.DE_LOTE_DIRECCION IS NOT NULL THEN 'LT ' || A.DE_LOTE_DIRECCION ELSE '' END
+                ) AS DIRECCION_COMPLETA,
 
-            -- (25) al (27) Contacto
-            'PERUANA'               AS "NACIONALIDAD",
-            A.DE_CORREO             AS "CORREO_ELECTRONICO",
-            A.NU_CELULAR            AS "CELULAR"
+                -- 5. FOTO (Logica Fila 11: Cruzar Mayor o Menor)
+                COALESCE(IMG_MAY.IM_FOTO, IMG_MEN.IM_FOTO_MENOR) AS IM_FOTO,
 
-        FROM IDOTABMAESTRA.GETM_ANI A
-        WHERE A.NU_DNI = p_vNU_DNI;
+                -- 6. OTROS DATOS
+                A.CO_GRUPO_VOTACION,
+                A.IN_DONACION_ORGANOS,
+                A.CO_RESTRICCION,
+                A.DE_OBS_DNI AS OBSERVACIONES,
 
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Error en WSSP_OBT_DATOS_CIUDADANO: ' || SQLERRM);
-END WSSP_OBT_DATOS_CIUDADANO;
+                -- Datos Padres
+                A.CO_TIPO_DOC_PADRE, A.NU_DOC_PADRE,
+                A.CO_TIPO_DOC_MADRE, A.NU_DOC_MADRE,
+
+                'PER' AS NACIONALIDAD
+
+            FROM IDOTABMAESTRA.GETM_ANI A
+
+            -- JOIN FOTOS MAYORES (IMAGADM.IDTP_IMAGENES)
+            LEFT JOIN IMAGADM.IDTP_IMAGENES IMG_MAY
+                   ON IMG_MAY.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MAY.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+
+            -- JOIN FOTOS MENORES (IMAGADM.IDTP_IMAGEN_MENOR)
+            LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR IMG_MEN
+                   ON IMG_MEN.NU_FICHA      = A.NU_FICHA_INSCRIPCION
+                  AND IMG_MEN.CO_TIPO_FICHA = A.CO_TIPO_FICHA_INSCRIPCION
+
+            WHERE A.NU_DNI = p_vNU_DNI; -- Variable corregida
+
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Error WSSP_OBT_DATOS_DNI: ' || SQLERRM);
+    END WSSP_OBT_DATOS_DNI;
 /
-
-VARIABLE resultado REFCURSOR;
-EXEC WSSP_OBT_DATOS_CIUDADANO('12345678', :resultado);
-PRINT resultado;
