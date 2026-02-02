@@ -1,139 +1,37 @@
+-- =============================================================================
+-- VERSIÓN SIMPLIFICADA: solo GETM_ANI (sin JOINs a ubigeos, catálogos, foto)
+-- Útil para probar o cuando las tablas/vistas auxiliares tengan otros nombres.
+-- =============================================================================
+/*
 SELECT
-    -- (01) Código Único de Identificación-CUI - Número DNI
-    a.NU_DNI                    AS cui_numero_dni,
+    a.NU_DNI                    AS cui_numero_dni,           -- (01)
+    a.PRENOM_INSCRITO           AS nombres,                 -- (02)
+    a.AP_PRIMER                 AS apellido_paterno,         -- (03)
+    a.AP_SEGUNDO                AS apellido_materno,         -- (04)
+    a.AP_CASADA                 AS apellido_casada,         -- (05)
+    a.FE_NACIMIENTO             AS fecha_nacimiento,         -- (06)
+    NULL                        AS lugar_nacimiento,         -- (07) desde GEVW_UBIGEOS
+    NULL                        AS ubigeo_nacimiento,       -- (08) desde GEVW_UBIGEOS
+    a.DE_GENERO                 AS sexo,                    -- (09) o desde GETR_DOMINIOS
+    a.DE_ESTADO_CIVIL           AS estado_civil,             -- (10) o desde GETR_ESTADO_CIVIL
+    NULL                        AS foto,                     -- (11) desde IMAGADM
+    NULL                        AS ubigeo_domicilio,         -- (12) desde GEVW_UBIGEOS
+    NULL                        AS lugar_domicilio,          -- (13) desde GEVW_UBIGEOS
+    a.DE_PREF_DIRECCION || ' ' || NVL(a.DE_DIRECCION,'')    AS domicilio,  -- (14)
+    NULL                        AS grupo_factor_sanguineo,   -- (15) desde GETR_GRUPO_FACTOR_SANGUINEO
+    NULL                        AS observaciones,            -- (16) desde GETM_OBSERVACION_DNI
+    NULL                        AS restriccion,              -- (17) desde GETM_RESTRICCION
+    a.FE_EMISION                AS fecha_emision_dnie,       -- 18
+    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN 'NO CADUCA' ELSE TO_CHAR(a.FE_CADUCIDAD) END AS fecha_caducidad_dnie,  -- 19
+    a.CO_TIPO_DOC_PADRE         AS tipo_documento_padre,      -- (20)
+    a.NU_DOC_PADRE              AS numero_documento_padre,   -- (21)
+    a.CO_TIPO_DOC_MADRE         AS tipo_documento_madre,     -- (22)
+    a.NU_DOC_MADRE              AS numero_documento_madre,   -- (23) si existe; si no, NU_DOC_PADRE según Excel
+    NULL                        AS nacionalidad,             -- 25
+    NULL                        AS correo_electronico,       -- 26
+    NULL                        AS celular                    -- 27
+FROM IDOTABMAESTRA.GETM_ANI a
+WHERE a.NU_DNI = :p_numero_dni;
+*/
 
-    -- (02) Nombres
-    a.PRENOM_INSCRITO           AS nombres,
-
-    -- (03) Apellido paterno
-    a.AP_PRIMER                 AS apellido_paterno,
-
-    -- (04) Apellido materno
-    a.AP_SEGUNDO                AS apellido_materno,
-
-    -- (05) Apellido de casada
-    a.AP_CASADA                 AS apellido_casada,
-
-    -- (06) Fecha de nacimiento
-    a.FE_NACIMIENTO             AS fecha_nacimiento,
-
-    -- (07) Lugar de nacimiento (Ubigeo descriptivo + cuarto nivel)
-    -- Origen: GETM_ANI + GEVW_UBIGEOS, DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM)
-    ubigeo_nac.DE_UBIGEO_CAPTU  AS lugar_nacimiento,
-
-    -- (08) UBIGEO de nacimiento (código)
-    -- Origen: GETM_ANI + GEVW_UBIGEOS, CO_UBIGEO (quitar guion con REPLACE si aplica)
-    ubigeo_nac.CO_UBIGEO        AS ubigeo_nacimiento,
-
-    -- (09) Sexo - Género registral
-    -- Origen: GETM_ANI + GETR_DOMINIOS (dominio TIPO_SEXO) -> DE_DOM
-    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO) AS sexo,
-
-    -- (10) Estado civil
-    -- Origen: GETM_ANI + GETR_ESTADO_CIVIL
-    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL) AS estado_civil,
-
-    -- (11) Fotografía (Base64/tramada)
-    -- Origen: IMAGADM - cruce por TIPO y NRO FICHA IMAGEN/FORMULARIO -> IM_FOTO, IM_FOTO_MENOR
-    img.IM_FOTO                 AS foto,
-
-    -- (12) UBIGEO de domicilio (código)
-    ubigeo_dom.CO_UBIGEO        AS ubigeo_domicilio,
-
-    -- (13) Lugar de domicilio (UBIGEO descriptivo + cuarto nivel)
-    ubigeo_dom.DE_UBIGEO_CAPTU  AS lugar_domicilio,
-
-    -- (14) Domicilio - Dirección domiciliaria
-    -- Origen: DE_PREF_DIRECCION, DE_DIRECCION, NU_DIRECCION, etc. (GETR_DOMINIOS)
-    a.DE_PREF_DIRECCION || ' ' || a.DE_DIRECCION || ' ' || NVL(a.NU_DIRECCION, '') AS domicilio,
-
-    -- (15) Grupo y factor sanguíneo
-    -- Origen: GETM_ANI (código) + GETR_GRUPO_FACTOR_SANGUINEO -> DE_GRUPO_FACTOR
-    gfs.DE_GRUPO_FACTOR         AS grupo_factor_sanguineo,
-
-    -- (16) Observaciones
-    -- Origen: GETM_ANI + GETM_OBSERVACION_DNI + GETR_OBSERVACION -> DE_OBS
-    obs.DE_OBS                  AS observaciones,
-
-    -- (17) Restricción
-    -- Origen: GETM_ANI + GETM_RESTRICCION
-    res.DE_RESTRICCION          AS restriccion,
-
-    -- 18 - Fecha de emisión DNIe
-    a.FE_EMISION                AS fecha_emision_dnie,
-
-    -- 19 - Fecha de caducidad DNIe (si año 3000 -> 'NO CADUCA')
-    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN 'NO CADUCA' ELSE TO_CHAR(a.FE_CADUCIDAD) END AS fecha_caducidad_dnie,
-
-    -- (20) Tipo de documento del padre
-    a.CO_TIPO_DOC_PADRE         AS tipo_documento_padre,
-
-    -- (21) Número de documento del padre
-    a.NU_DOC_PADRE              AS numero_documento_padre,
-
-    -- (22) Tipo de documento de la madre
-    a.CO_TIPO_DOC_MADRE         AS tipo_documento_madre,
-
-    -- (23) Número de documento de la madre
-    a.NU_DOC_MADRE              AS numero_documento_madre,
-
-    -- 25 - Nacionalidad (Excel: no existe en RUIPN; placeholder)
-    CAST(NULL AS VARCHAR2(10))  AS nacionalidad,
-
-    -- 26 - Correo electrónico (Excel: PENDIENTE / opcional)
-    CAST(NULL AS VARCHAR2(80))  AS correo_electronico,
-
-    -- 27 - Celular (Excel: PENDIENTE; DE_CEL con DECODE según documentación)
-    CAST(NULL AS VARCHAR2(9))   AS celular
-
-FROM
-    IDOTABMAESTRA.GETM_ANI a
-
--- Lugar de nacimiento (descriptivo + código) - vista o tabla de ubigeos
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEOS ubigeo_nac
-    ON ubigeo_nac.CO_CONTINENTE = a.CO_CONTINENTE_NACIMIENTO
-   AND ubigeo_nac.CO_PAIS = a.CO_PAIS_NACIMIENTO
-   AND ubigeo_nac.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_NACIMIENTO
-   AND ubigeo_nac.CO_PROVINCIA = a.CO_PROVINCIA_NACIMIENTO
-   AND ubigeo_nac.CO_DISTRITO = a.CO_DISTRITO_NACIMIENTO
-   -- Incluir cuarto nivel (CO_CC) si existe en su modelo
-   -- AND ubigeo_nac.CO_CC = a.CO_CC_NACIMIENTO
-
--- Lugar de domicilio (descriptivo + código)
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEOS ubigeo_dom
-    ON ubigeo_dom.CO_CONTINENTE = a.CO_CONTINENTE_DOMICILIO
-   AND ubigeo_dom.CO_PAIS = a.CO_PAIS_DOMICILIO
-   AND ubigeo_dom.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_DOMICILIO
-   AND ubigeo_dom.CO_PROVINCIA = a.CO_PROVINCIA_DOMICILIO
-   AND ubigeo_dom.CO_DISTRITO = a.CO_DISTRITO_DOMICILIO
-
--- Sexo (dominio TIPO_SEXO) - si se usa GETR_DOMINIOS
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
-    ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
-
--- Estado civil
-LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec
-    ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
-
--- Grupo y factor sanguíneo
-LEFT JOIN IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO gfs
-    ON gfs.CO_GRUPO_FACTOR = a.CO_GRUPO_FACTOR_SANGUINEO
-
--- Observaciones (GETM_OBSERVACION_DNI + GETR_OBSERVACION)
-LEFT JOIN IDOTABMAESTRA.GETM_OBSERVACION_DNI obs_dni
-    ON obs_dni.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
-LEFT JOIN IDOTABMAESTRA.GETR_OBSERVACION obs
-    ON obs.CO_OBSERVACION = obs_dni.CO_OBSERVACION
-
--- Restricción
-LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res
-    ON res.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
-
--- Foto (IMAGADM - cruce por TIPO y NRO de FICHA IMAGEN o FORMULARIO)
-LEFT JOIN IDOTABMAESTRA.IMAGADM img
-    ON img.CO_TIPO_FICHA = a.CO_TIPO_FICHA  -- nombres de columnas a ajustar
-   AND img.NU_FICHA = a.NU_FICHA
-
-WHERE
-    a.NU_DNI = :p_numero_dni  -- parámetro de entrada (ej. 12345678)
-;
+-- =============================================================================
