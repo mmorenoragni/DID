@@ -1,3 +1,9 @@
+-- =============================================================================
+-- Query DNI Digital - Estructura JSON: datosDNI + titular
+-- Oracle 11g - Para consulta de DNI digital (IDOTABMAESTRA, IMAGADM)
+-- Ajustar nombres de columnas de GETM_ANI según el modelo real.
+-- =============================================================================
+
 SELECT
     -- ---------- datosDNI ----------
     LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')                     AS nuTarjeta,
@@ -15,7 +21,10 @@ SELECT
     TRIM(a.AP_PRIMER)                                         AS primerApellido,
     TRIM(a.AP_SEGUNDO)                                        AS segundoApellido,
     TO_CHAR(a.FE_NACIMIENTO, 'YYYYMMDD')                      AS feNacimiento,
-    TRIM(REPLACE(NVL(ubigeo_nac.DE_UBIGEO_CAPTU, ''), '/', ' / ')) AS deLugarNacimiento,
+    TRIM(REPLACE(
+        COALESCE(ubigeo_nac.DE_UBIGEO_CAPTU,
+                 TRIM(cont_nac.DE_DOM) || ' / ' || TRIM(pais_nac.DE_DOM)),
+        '/', ' / ')) AS deLugarNacimiento,
     COALESCE(dom_sexo.DE_DOM, a.DE_GENERO)                    AS sexo,
     COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL)           AS estadoCivil,
     COALESCE(img_mayor.IM_FOTO, img_menor.IM_FOTO_MENOR)      AS foto,
@@ -36,24 +45,28 @@ SELECT
     )                                                         AS domicilio,
     NVL(nac.DE_DOM, 'PERUANO')                                AS nacionalidad,
     NVL(donacion.DE_DOM, 'Si')                                AS donacionOrganos,
-    TRIM(NVL(ubigeo_nac.DE_CUARTO_NIVEL, ubigeo_dom.DE_CUARTO_NIVEL)) AS cuartoNivel
+    TRIM(COALESCE(cp_nac.DE_DOM, ubigeo_nac.DE_CUARTO_NIVEL, a.CO_CENTRO_POBLADO_NACI)) AS cuartoNivel
 
 FROM
     IDOTABMAESTRA.GETM_ANI a
 
--- Ubigeo nacimiento: CO_UBIGEO sin guión (REPLACE '-',''); extranjero: quitar continente con DECODE+SUBSTR
--- Si CO_UBIGEO tiene prefijo continente (ej. 'EUROPA-ESPAÑA-MADRID'), quitar 1er segmento; nacional sin prefijo.
+-- Ubigeo nacimiento: GETM_ANI no tiene CO_UBIGEO_NACIMIENTO; se arma con CO_DEPARTAMENTO_NACI, CO_PROVINCIA_NACI, CO_DISTRITO_NACI (6 dígitos)
 LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac
     ON ubigeo_nac.CO_UBIGEO = REPLACE(
-           CASE WHEN INSTR(NVL(TRIM(a.CO_UBIGEO_NACIMIENTO), ''), '-') > 0
-                THEN SUBSTR(TRIM(a.CO_UBIGEO_NACIMIENTO), INSTR(TRIM(a.CO_UBIGEO_NACIMIENTO), '-') + 1)
-                ELSE NVL(TRIM(a.CO_UBIGEO_NACIMIENTO), '')
-           END,
+           LPAD(NVL(TRIM(TO_CHAR(a.CO_DEPARTAMENTO_NACI)), '0'), 2, '0') ||
+           LPAD(NVL(TRIM(TO_CHAR(a.CO_PROVINCIA_NACI)), '0'), 2, '0') ||
+           LPAD(NVL(TRIM(TO_CHAR(a.CO_DISTRITO_NACI)), '0'), 2, '0'),
            '-', '')
 
--- Ubigeo domicilio
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom
-    ON ubigeo_dom.CO_UBIGEO = REPLACE(NVL(TRIM(a.CO_UBIGEO_DOMICILIO), ''), '-', '')
+-- Extranjeros: continente y país de nacimiento (catálogos por código; ajustar nombres de dominio/tabla)
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS cont_nac
+    ON cont_nac.CO_DOMINIO = 'CONTINENTE' AND cont_nac.CO_DOM = a.CO_CONTINENTE_NACI
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS pais_nac
+    ON pais_nac.CO_DOMINIO = 'PAIS' AND pais_nac.CO_DOM = a.CO_PAIS_NACI
+
+-- Cuarto nivel: centro poblado de nacimiento (ajustar tabla/dominio si existe GETR_CENTRO_POBLADO)
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS cp_nac
+    ON cp_nac.CO_DOMINIO = 'CENTRO_POBLADO' AND cp_nac.CO_DOM = a.CO_CENTRO_POBLADO_NACI
 
 -- Sexo (GETR_DOMINIOS TIPO_SEXO)
 LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
@@ -90,24 +103,54 @@ LEFT JOIN IMAGADM.IDTP_IMAGENES img_mayor
     ON img_mayor.NU_DNI = a.NU_DNI
 LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR img_menor
     ON img_menor.NU_DNI = a.NU_DNI
------------------------------------
+
 WHERE
     a.NU_DNI = :p_numero_dni;
 
 -- =============================================================================
 -- NOTAS DE AJUSTE
 -- =============================================================================
--- 1) GETM_ANI: Confirmar nombres de columnas:
---    CO_UBIGEO_NACIMIENTO / CO_UBIGEO_NAC, CO_UBIGEO_DOMICILIO / CO_UBIGEO_DOM,
---    CO_PREF_DIRECCION, CO_PREF_BLOCK, CO_PREF_INTERIOR, CO_PREF_URB,
---    CO_NACIONALIDAD, CO_DONACION_ORGANOS, DE_DIRECCION, NU_DIRECCION,
---    DE_BLOCK_CHALET, DE_INTERIOR, DE_URBANIZACION, DE_ETAPA, DE_MANZANA, DE_LOTE_DIRECCION.
--- 2) GEVW_UBIGEO: DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM).
---    CO_UBIGEO: quitar guión REPLACE(..., '-', ''); extranjero: DECODE + SUBSTR para continente.
--- 3) GETM_RESTRICCION: Columna DE_CEL (o la que aplique) con DECODES; si existe registro -> estado no VIGENTE.
--- 4) IDTP_IMAGENES: Clave de cruce por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO si no es NU_DNI.
---    IM_HUELLA: nombre real de columna de huella (puede ser otro o estar en otra tabla).
--- 5) Cuarto nivel: Si GEVW_UBIGEO no tiene DE_CUARTO_NIVEL, usar cuarta parte de DE_UBIGEO_CAPTU o tabla de centros poblados.
--- 6) RRCC: Si nuTarjeta/dni debe venir de RRCC (01234567, 01542785), usar JOIN a IDORRCC.RCTM_NACIMIENTOS por NU_CUI
---    y formatear NU_CUI con LPAD(TRIM(NU_CUI), 8, '0').
+-- 1) GETM_ANI no tiene CO_UBIGEO_*. Nacimiento se arma con:
+--    CO_DEPARTAMENTO_NACI, CO_PROVINCIA_NACI, CO_DISTRITO_NACI -> CO_UBIGEO 6 dígitos.
+--    Extranjeros: CO_CONTINENTE_NACI, CO_PAIS_NACI (catálogos CONTINENTE, PAIS en GETR_DOMINIOS o tablas propias).
+--    Cuarto nivel: CO_CENTRO_POBLADO_NACI (dominio CENTRO_POBLADO o tabla de centros poblados).
+--    Domicilio: no hay campo UBIGEO; confirmar CO_*_DOM o columnas de dirección (DE_DIRECCION, etc.).
+-- 2) GEVW_UBIGEO: CO_UBIGEO 6 dígitos (sin guión); DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM).
+-- 3) GETM_RESTRICCION: DE_CEL con DECODES; si existe registro -> deEstadoDNI no VIGENTE.
+-- 4) IDTP_IMAGENES: Clave por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO; IM_HUELLA si existe.
+-- 5) Cuarto nivel: cp_nac desde GETR_DOMINIOS (CENTRO_POBLADO) o tabla GETR_CENTRO_POBLADO; ajustar según modelo.
+-- 6) RRCC: Si nuTarjeta/dni viene de RRCC, JOIN a IDORRCC.RCTM_NACIMIENTOS por NU_CUI.
 -- =============================================================================
+
+-- =============================================================================
+-- VERSIÓN SIMPLIFICADA (solo GETM_ANI + dominios básicos; sin ubigeo ni domicilio compuesto)
+-- Útil cuando las columnas de ubigeo/domicilio o tablas auxiliares no existan aún.
+-- =============================================================================
+/*
+SELECT
+    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')     AS nuTarjeta,
+    TO_CHAR(a.FE_EMISION, 'YYYYMMDD')         AS feEmision,
+    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN NULL
+         ELSE TO_CHAR(a.FE_CADUCIDAD, 'YYYYMMDD') END AS feVencimiento,
+    '3'                                       AS versionDNI,
+    CASE WHEN res.NU_DNI IS NOT NULL THEN NVL(TRIM(res.DE_CEL), 'VIGENTE') ELSE 'VIGENTE' END AS deEstadoDNI,
+    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')     AS dni,
+    TRIM(a.PRENOM_INSCRITO)                   AS prenombres,
+    TRIM(a.AP_PRIMER)                         AS primerApellido,
+    TRIM(a.AP_SEGUNDO)                        AS segundoApellido,
+    TO_CHAR(a.FE_NACIMIENTO, 'YYYYMMDD')      AS feNacimiento,
+    NULL                                      AS deLugarNacimiento,
+    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO)    AS sexo,
+    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL) AS estadoCivil,
+    NULL                                      AS foto,
+    NULL                                      AS huellaDigital,
+    TRIM(NVL(a.DE_PREF_DIRECCION, '') || ' ' || NVL(a.DE_DIRECCION, '') || ' ' || NVL(TO_CHAR(a.NU_DIRECCION), '')) AS domicilio,
+    'PERUANO'                                 AS nacionalidad,
+    'Si'                                      AS donacionOrganos,
+    NULL                                      AS cuartoNivel
+FROM IDOTABMAESTRA.GETM_ANI a
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
+LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec   ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
+LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res   ON res.NU_DNI = a.NU_DNI
+WHERE a.NU_DNI = :p_numero_dni;
+*/
