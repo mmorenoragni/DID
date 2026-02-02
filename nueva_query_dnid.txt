@@ -1,114 +1,61 @@
--- =============================================================================
--- Query DNI Digital - Campos según Etiqueta en MOCKUP
--- Origen: credenciales-from-emma.xlsx (tablas y campos)
--- Esquema IDOTABMAESTRA: GETM_ANI, GETM_OBSERVACION_DNI, GETM_RESTRICCION,
--- GETR_DOMINIOS, GETR_ESTADO_CIVIL, GETR_GRUPO_FACTOR_SANGUINEO, GETR_OBSERVACION,
--- GEVW_UBIGEO (vista). Esquema IMAGADM: IDTP_IMAGENES (mayores), IDTP_IMAGEN_MENOR (menores).
--- =============================================================================
--- NOTA: Ajustar nombres de esquema (IDOTABMAESTRA) y tablas según el ambiente real.
---       Nacionalidad (25), Correo electrónico (26) y Celular (27) figuran como
---       PENDIENTE/no disponibles en el Excel; se dejan como placeholder.
--- =============================================================================
-
 SELECT
-    -- (01) Código Único de Identificación-CUI - Número DNI
-    a.NU_DNI                    AS cui_numero_dni,
+    -- ---------- datosDNI ----------
+    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')                     AS nuTarjeta,
+    TO_CHAR(a.FE_EMISION, 'YYYYMMDD')                         AS feEmision,
+    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN NULL
+         ELSE TO_CHAR(a.FE_CADUCIDAD, 'YYYYMMDD') END         AS feVencimiento,
+    '3'                                                       AS versionDNI,
+    CASE WHEN res.NU_DNI IS NOT NULL AND UPPER(NVL(TRIM(res.DE_CEL), 'X')) LIKE '%FALLECIDO%' THEN 'FALLECIDO'
+         WHEN res.NU_DNI IS NOT NULL THEN NVL(TRIM(res.DE_CEL), 'VIGENTE')
+         ELSE 'VIGENTE' END                                   AS deEstadoDNI,
 
-    -- (02) Nombres
-    a.PRENOM_INSCRITO           AS nombres,
-
-    -- (03) Apellido paterno
-    a.AP_PRIMER                 AS apellido_paterno,
-
-    -- (04) Apellido materno
-    a.AP_SEGUNDO                AS apellido_materno,
-
-    -- (05) Apellido de casada
-    a.AP_CASADA                 AS apellido_casada,
-
-    -- (06) Fecha de nacimiento
-    a.FE_NACIMIENTO             AS fecha_nacimiento,
-
-    -- (07) Lugar de nacimiento (Ubigeo descriptivo + cuarto nivel)
-    -- Origen: GEVW_UBIGEO; GETM_ANI no tiene columnas CO_*_NACIMIENTO para JOIN → NULL hasta definir columnas
-    CAST(NULL AS VARCHAR2(400)) AS lugar_nacimiento,
-
-    -- (08) UBIGEO de nacimiento (código)
-    -- Ajustar a a.CO_UBIGEO_NACIMIENTO si existe en GETM_ANI
-    CAST(NULL AS VARCHAR2(20))   AS ubigeo_nacimiento,
-
-    -- (09) Sexo - Género registral
-    -- Origen: GETM_ANI + GETR_DOMINIOS (dominio TIPO_SEXO) -> DE_DOM
-    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO) AS sexo,
-
-    -- (10) Estado civil
-    -- Origen: GETM_ANI + GETR_ESTADO_CIVIL
-    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL) AS estado_civil,
-
-    -- (11) Fotografía (Base64/tramada)
-    -- Origen: IMAGADM.IDTP_IMAGENES (mayores) e IMAGADM.IDTP_IMAGEN_MENOR (menores)
-    COALESCE(img_mayor.IM_FOTO, img_menor.IM_FOTO) AS foto,
-
-    -- (12) UBIGEO de domicilio (código)
-    -- Ajustar a a.CO_UBIGEO_DOMICILIO si existe en GETM_ANI
-    CAST(NULL AS VARCHAR2(20))   AS ubigeo_domicilio,
-
-    -- (13) Lugar de domicilio (UBIGEO descriptivo + cuarto nivel)
-    -- GETM_ANI no tiene columnas CO_*_DOMICILIO para JOIN a GEVW_UBIGEO → NULL hasta definir
-    CAST(NULL AS VARCHAR2(400)) AS lugar_domicilio,
-
-    -- (14) Domicilio - Dirección domiciliaria
-    -- Origen: DE_PREF_DIRECCION, DE_DIRECCION, NU_DIRECCION, etc. (GETR_DOMINIOS)
-    a.DE_PREF_DIRECCION || ' ' || a.DE_DIRECCION || ' ' || NVL(a.NU_DIRECCION, '') AS domicilio,
-
-    -- (15) Grupo y factor sanguíneo
-    -- Origen: GETM_ANI (código) + GETR_GRUPO_FACTOR_SANGUINEO -> DE_GRUPO_FACTOR
-    gfs.DE_GRUPO_FACTOR         AS grupo_factor_sanguineo,
-
-    -- (16) Observaciones
-    -- Origen: GETM_ANI + GETM_OBSERVACION_DNI + GETR_OBSERVACION -> DE_OBS
-    obs.DE_OBS                  AS observaciones,
-
-    -- (17) Restricción
-    -- Origen: GETM_ANI + GETM_RESTRICCION
-    res.DE_RESTRICCION          AS restriccion,
-
-    -- 18 - Fecha de emisión DNIe
-    a.FE_EMISION                AS fecha_emision_dnie,
-
-    -- 19 - Fecha de caducidad DNIe (si año 3000 -> 'NO CADUCA')
-    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN 'NO CADUCA' ELSE TO_CHAR(a.FE_CADUCIDAD) END AS fecha_caducidad_dnie,
-
-    -- (20) Tipo de documento del padre
-    a.CO_TIPO_DOC_PADRE         AS tipo_documento_padre,
-
-    -- (21) Número de documento del padre
-    a.NU_DOC_PADRE              AS numero_documento_padre,
-
-    -- (22) Tipo de documento de la madre
-    a.CO_TIPO_DOC_MADRE         AS tipo_documento_madre,
-
-    -- (23) Número de documento de la madre
-    a.NU_DOC_MADRE              AS numero_documento_madre,
-
-    -- 25 - Nacionalidad (Excel: no existe en RUIPN; placeholder)
-    CAST(NULL AS VARCHAR2(10))  AS nacionalidad,
-
-    -- 26 - Correo electrónico (Excel: PENDIENTE / opcional)
-    CAST(NULL AS VARCHAR2(80))  AS correo_electronico,
-
-    -- 27 - Celular (Excel: PENDIENTE; DE_CEL con DECODE según documentación)
-    CAST(NULL AS VARCHAR2(9))   AS celular
+    -- ---------- titular ----------
+    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')                     AS dni,
+    TRIM(a.PRENOM_INSCRITO)                                   AS prenombres,
+    TRIM(a.AP_PRIMER)                                         AS primerApellido,
+    TRIM(a.AP_SEGUNDO)                                        AS segundoApellido,
+    TO_CHAR(a.FE_NACIMIENTO, 'YYYYMMDD')                      AS feNacimiento,
+    TRIM(REPLACE(NVL(ubigeo_nac.DE_UBIGEO_CAPTU, ''), '/', ' / ')) AS deLugarNacimiento,
+    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO)                    AS sexo,
+    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL)           AS estadoCivil,
+    COALESCE(img_mayor.IM_FOTO, img_menor.IM_FOTO_MENOR)      AS foto,
+    img_mayor.IM_HUELLA                                       AS huellaDigital,
+    TRIM(
+        NVL(TRIM(dec_pref_dir.DE_DOM), '') || ' ' ||
+        NVL(TRIM(a.DE_DIRECCION), '') || ' ' ||
+        NVL(TRIM(TO_CHAR(a.NU_DIRECCION)), '') || ' ' ||
+        NVL(TRIM(dec_pref_block.DE_DOM), '') || ' ' ||
+        NVL(TRIM(a.DE_BLOCK_CHALET), '') || ' ' ||
+        NVL(TRIM(dec_pref_int.DE_DOM), '') || ' ' ||
+        NVL(TRIM(a.DE_INTERIOR), '') || ' ' ||
+        NVL(TRIM(dec_pref_urb.DE_DOM), '') || ' ' ||
+        NVL(TRIM(a.DE_URBANIZACION), '') || ' ' ||
+        NVL(TRIM(a.DE_ETAPA), '') || ' ' ||
+        NVL(TRIM(a.DE_MANZANA), '') || ' ' ||
+        NVL(TRIM(a.DE_LOTE_DIRECCION), '')
+    )                                                         AS domicilio,
+    NVL(nac.DE_DOM, 'PERUANO')                                AS nacionalidad,
+    NVL(donacion.DE_DOM, 'Si')                                AS donacionOrganos,
+    TRIM(NVL(ubigeo_nac.DE_CUARTO_NIVEL, ubigeo_dom.DE_CUARTO_NIVEL)) AS cuartoNivel
 
 FROM
     IDOTABMAESTRA.GETM_ANI a
 
--- Ubigeo: lugar (07, 13) y código (08, 12) en NULL hasta tener columnas en GETM_ANI.
--- Si GETM_ANI tiene CO_UBIGEO_NACIMIENTO / CO_UBIGEO_DOMICILIO, usarlos en SELECT y opcional:
--- LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac ON ubigeo_nac.CO_UBIGEO = a.CO_UBIGEO_NACIMIENTO
--- LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom ON ubigeo_dom.CO_UBIGEO = a.CO_UBIGEO_DOMICILIO
+-- Ubigeo nacimiento: CO_UBIGEO sin guión (REPLACE '-',''); extranjero: quitar continente con DECODE+SUBSTR
+-- Si CO_UBIGEO tiene prefijo continente (ej. 'EUROPA-ESPAÑA-MADRID'), quitar 1er segmento; nacional sin prefijo.
+LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac
+    ON ubigeo_nac.CO_UBIGEO = REPLACE(
+           CASE WHEN INSTR(NVL(TRIM(a.CO_UBIGEO_NACIMIENTO), ''), '-') > 0
+                THEN SUBSTR(TRIM(a.CO_UBIGEO_NACIMIENTO), INSTR(TRIM(a.CO_UBIGEO_NACIMIENTO), '-') + 1)
+                ELSE NVL(TRIM(a.CO_UBIGEO_NACIMIENTO), '')
+           END,
+           '-', '')
 
--- Sexo (dominio TIPO_SEXO) - si se usa GETR_DOMINIOS
+-- Ubigeo domicilio
+LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom
+    ON ubigeo_dom.CO_UBIGEO = REPLACE(NVL(TRIM(a.CO_UBIGEO_DOMICILIO), ''), '-', '')
+
+-- Sexo (GETR_DOMINIOS TIPO_SEXO)
 LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
     ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
 
@@ -116,24 +63,51 @@ LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
 LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec
     ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
 
--- Grupo y factor sanguíneo
-LEFT JOIN IDOTABMAESTRA.GETR_GRUPO_FACTOR_SANGUINEO gfs
-    ON gfs.CO_GRUPO_FACTOR = a.CO_GRUPO_FACTOR_SANGUINEO
+-- Domicilio: prefijos desde GETR_DOMINIOS (DECODE = CO_DOM -> DE_DOM, REPLACE/TRIM según doc)
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_dir
+    ON dec_pref_dir.CO_DOMINIO = 'DE_PREF_DIRECCION' AND dec_pref_dir.CO_DOM = a.CO_PREF_DIRECCION
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_block
+    ON dec_pref_block.CO_DOMINIO = 'DE_PREF_BLOCK' AND dec_pref_block.CO_DOM = a.CO_PREF_BLOCK
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_int
+    ON dec_pref_int.CO_DOMINIO = 'DE_PREF_INTERIOR' AND dec_pref_int.CO_DOM = a.CO_PREF_INTERIOR
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_urb
+    ON dec_pref_urb.CO_DOMINIO = 'DE_PREF_URB' AND dec_pref_urb.CO_DOM = a.CO_PREF_URB
 
--- Observaciones (GETM_OBSERVACION_DNI + GETR_OBSERVACION)
-LEFT JOIN IDOTABMAESTRA.GETM_OBSERVACION_DNI obs_dni
-    ON obs_dni.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
-LEFT JOIN IDOTABMAESTRA.GETR_OBSERVACION obs
-    ON obs.CO_OBSERVACION = obs_dni.CO_OBSERVACION
+-- Nacionalidad (dominio NACIONALIDAD si existe)
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS nac
+    ON nac.CO_DOMINIO = 'NACIONALIDAD' AND nac.CO_DOM = a.CO_NACIONALIDAD
 
--- Restricción
+-- Donación de órganos (dominio si existe)
+LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS donacion
+    ON donacion.CO_DOMINIO = 'DONACION_ORGANOS' AND donacion.CO_DOM = a.CO_DONACION_ORGANOS
+
+-- Restricción (DE_CEL con DECODES -> FALLECIDO, etc.)
 LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res
-    ON res.NU_DNI = a.NU_DNI  -- ajustar clave según modelo real
+    ON res.NU_DNI = a.NU_DNI
 
--- Foto: esquema IMAGADM - IDTP_IMAGENES (mayores), IDTP_IMAGEN_MENOR (menores)
--- Ajustar: nombre de columna de imagen (IM_FOTO, IMAGEN, etc.) y clave de JOIN
--- (doc. Excel: cruce por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO; aquí se usa NU_DNI como ejemplo)
+-- Foto y huella: IMAGADM (cruzar por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO según doc)
 LEFT JOIN IMAGADM.IDTP_IMAGENES img_mayor
     ON img_mayor.NU_DNI = a.NU_DNI
 LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR img_menor
     ON img_menor.NU_DNI = a.NU_DNI
+-----------------------------------
+WHERE
+    a.NU_DNI = :p_numero_dni;
+
+-- =============================================================================
+-- NOTAS DE AJUSTE
+-- =============================================================================
+-- 1) GETM_ANI: Confirmar nombres de columnas:
+--    CO_UBIGEO_NACIMIENTO / CO_UBIGEO_NAC, CO_UBIGEO_DOMICILIO / CO_UBIGEO_DOM,
+--    CO_PREF_DIRECCION, CO_PREF_BLOCK, CO_PREF_INTERIOR, CO_PREF_URB,
+--    CO_NACIONALIDAD, CO_DONACION_ORGANOS, DE_DIRECCION, NU_DIRECCION,
+--    DE_BLOCK_CHALET, DE_INTERIOR, DE_URBANIZACION, DE_ETAPA, DE_MANZANA, DE_LOTE_DIRECCION.
+-- 2) GEVW_UBIGEO: DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM).
+--    CO_UBIGEO: quitar guión REPLACE(..., '-', ''); extranjero: DECODE + SUBSTR para continente.
+-- 3) GETM_RESTRICCION: Columna DE_CEL (o la que aplique) con DECODES; si existe registro -> estado no VIGENTE.
+-- 4) IDTP_IMAGENES: Clave de cruce por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO si no es NU_DNI.
+--    IM_HUELLA: nombre real de columna de huella (puede ser otro o estar en otra tabla).
+-- 5) Cuarto nivel: Si GEVW_UBIGEO no tiene DE_CUARTO_NIVEL, usar cuarta parte de DE_UBIGEO_CAPTU o tabla de centros poblados.
+-- 6) RRCC: Si nuTarjeta/dni debe venir de RRCC (01234567, 01542785), usar JOIN a IDORRCC.RCTM_NACIMIENTOS por NU_CUI
+--    y formatear NU_CUI con LPAD(TRIM(NU_CUI), 8, '0').
+-- =============================================================================
