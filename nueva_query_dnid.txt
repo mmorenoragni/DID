@@ -89,23 +89,23 @@ SELECT
 FROM
     IDOTABMAESTRA.GETM_ANI a
 
--- Lugar de nacimiento (descriptivo + código) - vista o tabla de ubigeos
+-- Lugar de nacimiento (descriptivo + código) - vista GEVW_UBIGEO
+-- Ajustar columnas de JOIN si GETM_ANI tiene otras (ej. CO_DISTRITO_NACIMIENTO, CO_CC_NACIMIENTO)
 LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac
     ON ubigeo_nac.CO_CONTINENTE = a.CO_CONTINENTE_NACIMIENTO
    AND ubigeo_nac.CO_PAIS = a.CO_PAIS_NACIMIENTO
    AND ubigeo_nac.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_NACIMIENTO
    AND ubigeo_nac.CO_PROVINCIA = a.CO_PROVINCIA_NACIMIENTO
-   AND ubigeo_nac.CO_DISTRITO = a.CO_DISTRITO_NACIMIENTO
-   -- Incluir cuarto nivel (CO_CC) si existe en su modelo
-   -- AND ubigeo_nac.CO_CC = a.CO_CC_NACIMIENTO
+   -- AND ubigeo_nac.CO_DISTRITO = a.CO_DISTRITO_NACIMIENTO  -- descomentar si existe en GETM_ANI
 
 -- Lugar de domicilio (descriptivo + código)
+-- Ajustar columnas de JOIN si GETM_ANI tiene otras (ej. CO_DISTRITO_DOMICILIO, CO_CC_DOMICILIO)
 LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom
     ON ubigeo_dom.CO_CONTINENTE = a.CO_CONTINENTE_DOMICILIO
    AND ubigeo_dom.CO_PAIS = a.CO_PAIS_DOMICILIO
    AND ubigeo_dom.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_DOMICILIO
    AND ubigeo_dom.CO_PROVINCIA = a.CO_PROVINCIA_DOMICILIO
-   AND ubigeo_dom.CO_DISTRITO = a.CO_DISTRITO_DOMICILIO
+   -- AND ubigeo_dom.CO_DISTRITO = a.CO_DISTRITO_DOMICILIO  -- descomentar si existe en GETM_ANI
 
 -- Sexo (dominio TIPO_SEXO) - si se usa GETR_DOMINIOS
 LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
