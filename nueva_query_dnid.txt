@@ -1,3 +1,15 @@
+-- =============================================================================
+-- Query DNI Digital - Campos según Etiqueta en MOCKUP
+-- Origen: credenciales-from-emma.xlsx (tablas y campos)
+-- Esquema IDOTABMAESTRA: GETM_ANI, GETM_OBSERVACION_DNI, GETM_RESTRICCION,
+-- GETR_DOMINIOS, GETR_ESTADO_CIVIL, GETR_GRUPO_FACTOR_SANGUINEO, GETR_OBSERVACION,
+-- GEVW_UBIGEO (vista). Esquema IMAGADM: IDTP_IMAGENES (mayores), IDTP_IMAGEN_MENOR (menores).
+-- =============================================================================
+-- NOTA: Ajustar nombres de esquema (IDOTABMAESTRA) y tablas según el ambiente real.
+--       Nacionalidad (25), Correo electrónico (26) y Celular (27) figuran como
+--       PENDIENTE/no disponibles en el Excel; se dejan como placeholder.
+-- =============================================================================
+
 SELECT
     -- (01) Código Único de Identificación-CUI - Número DNI
     a.NU_DNI                    AS cui_numero_dni,
@@ -18,12 +30,12 @@ SELECT
     a.FE_NACIMIENTO             AS fecha_nacimiento,
 
     -- (07) Lugar de nacimiento (Ubigeo descriptivo + cuarto nivel)
-    -- Origen: GETM_ANI + GEVW_UBIGEO, DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM)
-    ubigeo_nac.DE_UBIGEO_CAPTU  AS lugar_nacimiento,
+    -- Origen: GEVW_UBIGEO; GETM_ANI no tiene columnas CO_*_NACIMIENTO para JOIN → NULL hasta definir columnas
+    CAST(NULL AS VARCHAR2(400)) AS lugar_nacimiento,
 
     -- (08) UBIGEO de nacimiento (código)
-    -- Origen: GETM_ANI + GEVW_UBIGEO, CO_UBIGEO (quitar guion con REPLACE si aplica)
-    ubigeo_nac.CO_UBIGEO        AS ubigeo_nacimiento,
+    -- Ajustar a a.CO_UBIGEO_NACIMIENTO si existe en GETM_ANI
+    CAST(NULL AS VARCHAR2(20))   AS ubigeo_nacimiento,
 
     -- (09) Sexo - Género registral
     -- Origen: GETM_ANI + GETR_DOMINIOS (dominio TIPO_SEXO) -> DE_DOM
@@ -38,10 +50,12 @@ SELECT
     COALESCE(img_mayor.IM_FOTO, img_menor.IM_FOTO) AS foto,
 
     -- (12) UBIGEO de domicilio (código)
-    ubigeo_dom.CO_UBIGEO        AS ubigeo_domicilio,
+    -- Ajustar a a.CO_UBIGEO_DOMICILIO si existe en GETM_ANI
+    CAST(NULL AS VARCHAR2(20))   AS ubigeo_domicilio,
 
     -- (13) Lugar de domicilio (UBIGEO descriptivo + cuarto nivel)
-    ubigeo_dom.DE_UBIGEO_CAPTU  AS lugar_domicilio,
+    -- GETM_ANI no tiene columnas CO_*_DOMICILIO para JOIN a GEVW_UBIGEO → NULL hasta definir
+    CAST(NULL AS VARCHAR2(400)) AS lugar_domicilio,
 
     -- (14) Domicilio - Dirección domiciliaria
     -- Origen: DE_PREF_DIRECCION, DE_DIRECCION, NU_DIRECCION, etc. (GETR_DOMINIOS)
@@ -89,23 +103,10 @@ SELECT
 FROM
     IDOTABMAESTRA.GETM_ANI a
 
--- Lugar de nacimiento (descriptivo + código) - vista GEVW_UBIGEO
--- Ajustar columnas de JOIN si GETM_ANI tiene otras (ej. CO_DISTRITO_NACIMIENTO, CO_CC_NACIMIENTO)
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac
-    ON ubigeo_nac.CO_CONTINENTE = a.CO_CONTINENTE_NACIMIENTO
-   AND ubigeo_nac.CO_PAIS = a.CO_PAIS_NACIMIENTO
-   AND ubigeo_nac.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_NACIMIENTO
-   AND ubigeo_nac.CO_PROVINCIA = a.CO_PROVINCIA_NACIMIENTO
-   -- AND ubigeo_nac.CO_DISTRITO = a.CO_DISTRITO_NACIMIENTO  -- descomentar si existe en GETM_ANI
-
--- Lugar de domicilio (descriptivo + código)
--- Ajustar columnas de JOIN si GETM_ANI tiene otras (ej. CO_DISTRITO_DOMICILIO, CO_CC_DOMICILIO)
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom
-    ON ubigeo_dom.CO_CONTINENTE = a.CO_CONTINENTE_DOMICILIO
-   AND ubigeo_dom.CO_PAIS = a.CO_PAIS_DOMICILIO
-   AND ubigeo_dom.CO_DEPARTAMENTO = a.CO_DEPARTAMENTO_DOMICILIO
-   AND ubigeo_dom.CO_PROVINCIA = a.CO_PROVINCIA_DOMICILIO
-   -- AND ubigeo_dom.CO_DISTRITO = a.CO_DISTRITO_DOMICILIO  -- descomentar si existe en GETM_ANI
+-- Ubigeo: lugar (07, 13) y código (08, 12) en NULL hasta tener columnas en GETM_ANI.
+-- Si GETM_ANI tiene CO_UBIGEO_NACIMIENTO / CO_UBIGEO_DOMICILIO, usarlos en SELECT y opcional:
+-- LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac ON ubigeo_nac.CO_UBIGEO = a.CO_UBIGEO_NACIMIENTO
+-- LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_dom ON ubigeo_dom.CO_UBIGEO = a.CO_UBIGEO_DOMICILIO
 
 -- Sexo (dominio TIPO_SEXO) - si se usa GETR_DOMINIOS
 LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
