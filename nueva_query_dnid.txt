@@ -1,156 +1,111 @@
--- =============================================================================
--- Query DNI Digital - Estructura JSON: datosDNI + titular
--- Oracle 11g - Para consulta de DNI digital (IDOTABMAESTRA, IMAGADM)
--- Ajustar nombres de columnas de GETM_ANI según el modelo real.
--- =============================================================================
-
 SELECT
-    -- ---------- datosDNI ----------
-    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')                     AS nuTarjeta,
-    TO_CHAR(a.FE_EMISION, 'YYYYMMDD')                         AS feEmision,
-    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN NULL
-         ELSE TO_CHAR(a.FE_CADUCIDAD, 'YYYYMMDD') END         AS feVencimiento,
-    '3'                                                       AS versionDNI,
-    CASE WHEN res.NU_DNI IS NOT NULL AND UPPER(NVL(TRIM(res.DE_CEL), 'X')) LIKE '%FALLECIDO%' THEN 'FALLECIDO'
-         WHEN res.NU_DNI IS NOT NULL THEN NVL(TRIM(res.DE_CEL), 'VIGENTE')
-         ELSE 'VIGENTE' END                                   AS deEstadoDNI,
-
-    -- ---------- titular ----------
-    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')                     AS dni,
-    TRIM(a.PRENOM_INSCRITO)                                   AS prenombres,
-    TRIM(a.AP_PRIMER)                                         AS primerApellido,
-    TRIM(a.AP_SEGUNDO)                                        AS segundoApellido,
-    TO_CHAR(a.FE_NACIMIENTO, 'YYYYMMDD')                      AS feNacimiento,
-    TRIM(REPLACE(
-        COALESCE(ubigeo_nac.DE_UBIGEO_CAPTU,
-                 TRIM(cont_nac.DE_DOM) || ' / ' || TRIM(pais_nac.DE_DOM)),
-        '/', ' / ')) AS deLugarNacimiento,
-    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO)                    AS sexo,
-    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL)           AS estadoCivil,
-    COALESCE(img_mayor.IM_FOTO, img_menor.IM_FOTO_MENOR)      AS foto,
-    img_mayor.IM_HUELLA                                       AS huellaDigital,
+    -- (01) Código Único de Identificación - Número DNI
+    A.NU_DNI AS CUI_DNI,
+    -- (02) Nombres
+    A.PRENOM_INSCRITO AS PRENOMBRES,
+    -- (03) Apellido paterno
+    A.AP_PRIMER AS APELLIDO_PATERNO,
+    -- (04) Apellido materno
+    A.AP_SEGUNDO AS APELLIDO_MATERNO,
+    -- (05) Apellido de casada
+    A.AP_CASADA AS APELLIDO_CASADA,
+    -- (06) Fecha de nacimiento
+    A.FE_NACIMIENTO AS FECHA_NACIMIENTO,
+    -- (07) Lugar de nacimiento (Ubigeo descriptivo) - reemplazar '/' por ' / ', TRIM
+    TRIM(REPLACE(NVL(U_NACI.DE_UBIGEO_CAPTU, U_NACI.DE_UBIGEO), '/', ' / ')) AS LUGAR_NACIMIENTO,
+    -- (08) UBIGEO de nacimiento (código, sin guión; extranjero/nacional)
+    REPLACE(NVL(U_NACI.CO_UBIGEO, ''), '-', '') AS UBIGEO_NACIMIENTO,
+    -- (09) Sexo - género registral (GETR_DOMINIOS TIPO_SEXO o GETM_ANI.DE_GENERO)
+    NVL(D_SEXO.NO_DOM, A.DE_GENERO) AS SEXO,
+    -- (10) Estado civil
+    E.DE_ESTADO_CIVIL AS ESTADO_CIVIL,
+    -- (11) Foto: mayor -> IDTP_IMAGENES.MI_FOTO, menor -> IDTP_IMAGEN_MENOR.MI_FOTO_MENOR
+    NVL(IMG.MI_FOTO, IMGM.MI_FOTO_MENOR) AS FOTO,
+    -- (12) UBIGEO domicilio (código) - no visualizar en mockup pero disponible
+    REPLACE(NVL(U_DOM.CO_UBIGEO, ''), '-', '') AS UBIGEO_DOMICILIO,
+    -- (13) Lugar de domicilio (descriptivo)
+    TRIM(REPLACE(NVL(U_DOM.DE_UBIGEO_CAPTU, U_DOM.DE_UBIGEO), '/', ' / ')) AS LUGAR_DOMICILIO,
+    -- (14) Domicilio - dirección (pref + dirección + número + block, interior, urb, etc.)
+    -- GETR_DOMINIOS puede usarse para decodificar DE_PREF_* (DECODE/REPLACE/TRIM según doc)
     TRIM(
-        NVL(TRIM(dec_pref_dir.DE_DOM), '') || ' ' ||
-        NVL(TRIM(a.DE_DIRECCION), '') || ' ' ||
-        NVL(TRIM(TO_CHAR(a.NU_DIRECCION)), '') || ' ' ||
-        NVL(TRIM(dec_pref_block.DE_DOM), '') || ' ' ||
-        NVL(TRIM(a.DE_BLOCK_CHALET), '') || ' ' ||
-        NVL(TRIM(dec_pref_int.DE_DOM), '') || ' ' ||
-        NVL(TRIM(a.DE_INTERIOR), '') || ' ' ||
-        NVL(TRIM(dec_pref_urb.DE_DOM), '') || ' ' ||
-        NVL(TRIM(a.DE_URBANIZACION), '') || ' ' ||
-        NVL(TRIM(a.DE_ETAPA), '') || ' ' ||
-        NVL(TRIM(a.DE_MANZANA), '') || ' ' ||
-        NVL(TRIM(a.DE_LOTE_DIRECCION), '')
-    )                                                         AS domicilio,
-    NVL(nac.DE_DOM, 'PERUANO')                                AS nacionalidad,
-    NVL(donacion.DE_DOM, 'Si')                                AS donacionOrganos,
-    TRIM(COALESCE(cp_nac.DE_DOM, ubigeo_nac.DE_CUARTO_NIVEL, a.CO_CENTRO_POBLADO_NACI)) AS cuartoNivel
-
+        NVL(TRIM(A.DE_PREF_DIRECCION) || ' ', '') ||
+        NVL(TRIM(A.DE_DIRECCION) || ' ', '') ||
+        NVL(TRIM(A."NU_DIRECCCION") || ' ', '') ||
+        NVL(TRIM(A.DE_BLOCK_CHALET) || ' ', '') ||
+        NVL(TRIM(A.DE_INTERIOR) || ' ', '') ||
+        NVL(TRIM(A.DE_URBANIZACION) || ' ', '') ||
+        NVL(TRIM(A.DE_ETAPA) || ' ', '') ||
+        NVL(TRIM(A.DE_MANZANA) || ' ', '') ||
+        NVL(TRIM(A.DE_LOTE_DIRECCION) || ' ', '') ||
+        NVL(TRIM(A.DE_PREF_BLOCK) || ' ', '') ||
+        NVL(TRIM(A.DE_PREF_INTERIOR) || ' ', '') ||
+        NVL(TRIM(A.DE_PREF_URB) || ' ', '')
+    ) AS DOMICILIO,
+    -- (15) Grupo y factor sanguíneo
+    G.DE_GRUPO_FACTOR AS GRUPO_FACTOR_SANGUINEO,
+    -- (16) Observaciones (lista de observaciones del DNI)
+    OBS.LISTA_OBSERVACIONES AS OBSERVACIONES,
+    -- (17) Restricción (descripción; doc indica DE_CEL con DECODES - aquí DE_RESTRI)
+    R.DE_RESTRI AS RESTRICCION,
+    -- (18) Fecha de emisión DNIe
+    A.FE_EMISION AS FECHA_EMISION_DNIE,
+    -- (19) Fecha de caducidad DNIe (si año=3000 -> 'NO CADUCA')
+    CASE WHEN A.FE_CADUCIDAD IS NOT NULL AND TO_NUMBER(TO_CHAR(A.FE_CADUCIDAD, 'YYYY')) = 3000
+         THEN 'NO CADUCA'
+         ELSE TO_CHAR(A.FE_CADUCIDAD, 'DD/MM/YYYY')
+    END AS FECHA_CADUCIDAD_DNIE,
+    -- (20) Tipo documento progenitor 1 (padre)
+    A.CO_TIPO_DOC_PADRE AS TIPO_DOC_PROGENITOR1,
+    -- (21) Número documento progenitor 1 (padre)
+    A.NU_DOC_PADRE AS NUM_DOC_PROGENITOR1,
+    -- (22) Tipo documento progenitor 2 (madre)
+    A.CO_TIPO_DOC_MADRE AS TIPO_DOC_PROGENITOR2,
+    -- (23) Número documento progenitor 2 (madre)
+    A.NU_DOC_MADRE AS NUM_DOC_PROGENITOR2,
+    -- (25) Nacionalidad - para DNI digital siempre PER/PERUANO
+    'PER' AS NACIONALIDAD
 FROM
-    IDOTABMAESTRA.GETM_ANI a
-
--- Ubigeo nacimiento: GETM_ANI no tiene CO_UBIGEO_NACIMIENTO; se arma con CO_DEPARTAMENTO_NACI, CO_PROVINCIA_NACI, CO_DISTRITO_NACI (6 dígitos)
-LEFT JOIN IDOTABMAESTRA.GEVW_UBIGEO ubigeo_nac
-    ON ubigeo_nac.CO_UBIGEO = REPLACE(
-           LPAD(NVL(TRIM(TO_CHAR(a.CO_DEPARTAMENTO_NACI)), '0'), 2, '0') ||
-           LPAD(NVL(TRIM(TO_CHAR(a.CO_PROVINCIA_NACI)), '0'), 2, '0') ||
-           LPAD(NVL(TRIM(TO_CHAR(a.CO_DISTRITO_NACI)), '0'), 2, '0'),
-           '-', '')
-
--- Extranjeros: continente y país de nacimiento (catálogos por código; ajustar nombres de dominio/tabla)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS cont_nac
-    ON cont_nac.CO_DOMINIO = 'CONTINENTE' AND cont_nac.CO_DOM = a.CO_CONTINENTE_NACI
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS pais_nac
-    ON pais_nac.CO_DOMINIO = 'PAIS' AND pais_nac.CO_DOM = a.CO_PAIS_NACI
-
--- Cuarto nivel: centro poblado de nacimiento (ajustar tabla/dominio si existe GETR_CENTRO_POBLADO)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS cp_nac
-    ON cp_nac.CO_DOMINIO = 'CENTRO_POBLADO' AND cp_nac.CO_DOM = a.CO_CENTRO_POBLADO_NACI
-
--- Sexo (GETR_DOMINIOS TIPO_SEXO)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo
-    ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
-
--- Estado civil
-LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec
-    ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
-
--- Domicilio: prefijos desde GETR_DOMINIOS (DECODE = CO_DOM -> DE_DOM, REPLACE/TRIM según doc)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_dir
-    ON dec_pref_dir.CO_DOMINIO = 'DE_PREF_DIRECCION' AND dec_pref_dir.CO_DOM = a.CO_PREF_DIRECCION
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_block
-    ON dec_pref_block.CO_DOMINIO = 'DE_PREF_BLOCK' AND dec_pref_block.CO_DOM = a.CO_PREF_BLOCK
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_int
-    ON dec_pref_int.CO_DOMINIO = 'DE_PREF_INTERIOR' AND dec_pref_int.CO_DOM = a.CO_PREF_INTERIOR
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dec_pref_urb
-    ON dec_pref_urb.CO_DOMINIO = 'DE_PREF_URB' AND dec_pref_urb.CO_DOM = a.CO_PREF_URB
-
--- Nacionalidad (dominio NACIONALIDAD si existe)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS nac
-    ON nac.CO_DOMINIO = 'NACIONALIDAD' AND nac.CO_DOM = a.CO_NACIONALIDAD
-
--- Donación de órganos (dominio si existe)
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS donacion
-    ON donacion.CO_DOMINIO = 'DONACION_ORGANOS' AND donacion.CO_DOM = a.CO_DONACION_ORGANOS
-
--- Restricción (DE_CEL con DECODES -> FALLECIDO, etc.)
-LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res
-    ON res.NU_DNI = a.NU_DNI
-
--- Foto y huella: IMAGADM (cruzar por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO según doc)
-LEFT JOIN IMAGADM.IDTP_IMAGENES img_mayor
-    ON img_mayor.NU_DNI = a.NU_DNI
-LEFT JOIN IMAGADM.IDTP_IMAGEN_MENOR img_menor
-    ON img_menor.NU_DNI = a.NU_DNI
-
-WHERE
-    a.NU_DNI = :p_numero_dni;
-
--- =============================================================================
--- NOTAS DE AJUSTE
--- =============================================================================
--- 1) GETM_ANI no tiene CO_UBIGEO_*. Nacimiento se arma con:
---    CO_DEPARTAMENTO_NACI, CO_PROVINCIA_NACI, CO_DISTRITO_NACI -> CO_UBIGEO 6 dígitos.
---    Extranjeros: CO_CONTINENTE_NACI, CO_PAIS_NACI (catálogos CONTINENTE, PAIS en GETR_DOMINIOS o tablas propias).
---    Cuarto nivel: CO_CENTRO_POBLADO_NACI (dominio CENTRO_POBLADO o tabla de centros poblados).
---    Domicilio: no hay campo UBIGEO; confirmar CO_*_DOM o columnas de dirección (DE_DIRECCION, etc.).
--- 2) GEVW_UBIGEO: CO_UBIGEO 6 dígitos (sin guión); DE_UBIGEO_CAPTU (reemplazar '/' por ' / ', TRIM).
--- 3) GETM_RESTRICCION: DE_CEL con DECODES; si existe registro -> deEstadoDNI no VIGENTE.
--- 4) IDTP_IMAGENES: Clave por TIPO y NRO FICHA IMAGEN o NU_FORMULARIO; IM_HUELLA si existe.
--- 5) Cuarto nivel: cp_nac desde GETR_DOMINIOS (CENTRO_POBLADO) o tabla GETR_CENTRO_POBLADO; ajustar según modelo.
--- 6) RRCC: Si nuTarjeta/dni viene de RRCC, JOIN a IDORRCC.RCTM_NACIMIENTOS por NU_CUI.
--- =============================================================================
-
--- =============================================================================
--- VERSIÓN SIMPLIFICADA (solo GETM_ANI + dominios básicos; sin ubigeo ni domicilio compuesto)
--- Útil cuando las columnas de ubigeo/domicilio o tablas auxiliares no existan aún.
--- =============================================================================
-/*
-SELECT
-    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')     AS nuTarjeta,
-    TO_CHAR(a.FE_EMISION, 'YYYYMMDD')         AS feEmision,
-    CASE WHEN EXTRACT(YEAR FROM a.FE_CADUCIDAD) = 3000 THEN NULL
-         ELSE TO_CHAR(a.FE_CADUCIDAD, 'YYYYMMDD') END AS feVencimiento,
-    '3'                                       AS versionDNI,
-    CASE WHEN res.NU_DNI IS NOT NULL THEN NVL(TRIM(res.DE_CEL), 'VIGENTE') ELSE 'VIGENTE' END AS deEstadoDNI,
-    LPAD(TRIM(TO_CHAR(a.NU_DNI)), 8, '0')     AS dni,
-    TRIM(a.PRENOM_INSCRITO)                   AS prenombres,
-    TRIM(a.AP_PRIMER)                         AS primerApellido,
-    TRIM(a.AP_SEGUNDO)                        AS segundoApellido,
-    TO_CHAR(a.FE_NACIMIENTO, 'YYYYMMDD')      AS feNacimiento,
-    NULL                                      AS deLugarNacimiento,
-    COALESCE(dom_sexo.DE_DOM, a.DE_GENERO)    AS sexo,
-    COALESCE(ec.DE_ESTADO_CIVIL, a.DE_ESTADO_CIVIL) AS estadoCivil,
-    NULL                                      AS foto,
-    NULL                                      AS huellaDigital,
-    TRIM(NVL(a.DE_PREF_DIRECCION, '') || ' ' || NVL(a.DE_DIRECCION, '') || ' ' || NVL(TO_CHAR(a.NU_DIRECCION), '')) AS domicilio,
-    'PERUANO'                                 AS nacionalidad,
-    'Si'                                      AS donacionOrganos,
-    NULL                                      AS cuartoNivel
-FROM IDOTABMAESTRA.GETM_ANI a
-LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS dom_sexo ON dom_sexo.CO_DOMINIO = 'TIPO_SEXO' AND dom_sexo.CO_DOM = a.CO_GENERO
-LEFT JOIN IDOTABMAESTRA.GETR_ESTADO_CIVIL ec   ON ec.CO_ESTADO_CIVIL = a.CO_ESTADO_CIVIL
-LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION res   ON res.NU_DNI = a.NU_DNI
-WHERE a.NU_DNI = :p_numero_dni;
-*/
+    IDORRCC.GETM_ANI A
+    -- Ubigeo nacimiento
+    LEFT JOIN IDORRCC.GEVW_UBIGEOS U_NACI
+        ON U_NACI.CO_DEPARTAMENTO = A.CO_DEPARTAMENTO_NACI
+       AND U_NACI.CO_PROVINCIA    = A.CO_PROVINCIA_NACI
+       AND U_NACI.CO_DISTRITO     = A.CO_DISTRITO_NACI
+       AND NVL(U_NACI.CO_PAIS, ' ') = NVL(A.CO_PAIS_NACI, ' ')
+       AND NVL(U_NACI.CO_CONTINENE, ' ') = NVL(A.CO_CONTINENTE_NACI, ' ')
+       AND NVL(U_NACI.CO_CENTRO_POBLADO, ' ') = NVL(A.CO_CENTRO_POBLADO_NACI, ' ')
+    -- Ubigeo domicilio
+    LEFT JOIN IDORRCC.GEVW_UBIGEOS U_DOM
+        ON U_DOM.CO_DEPARTAMENTO = A.CO_DEPARTAMENTO_DOMICILIO
+       AND U_DOM.CO_PROVINCIA    = A.CO_PROVINCIA_DOMICILIO
+       AND U_DOM.CO_DISTRITO      = A.CO_DISTRITO_DOMICILIO
+       AND NVL(U_DOM.CO_PAIS, ' ') = NVL(A.CO_PAIS_DOMICILIO, ' ')
+       AND NVL(U_DOM.CO_CONTINENE, ' ') = NVL(A.CO_CONTINENTE_DOMICILIO, ' ')
+       AND NVL(U_DOM.CO_CENTRO_POBLADO, ' ') = NVL(A.CO_CENTRO_POBLADO_DOMICILIO, ' ')
+    -- Estado civil
+    LEFT JOIN IDORRCC.GETR_ESTADO_CIVIL E
+        ON E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL
+    -- Grupo y factor sanguíneo
+    LEFT JOIN IDORRCC.GETR_GRUPO_FACTOR_SANGUINEO G
+        ON G.CO_GRUPO_FACTOR = A.CO_GRUPO_SANGUINEO
+    -- Restricción
+    LEFT JOIN IDORRCC.GETM_RESTRICCION R
+        ON R.CO_RESTRI = A.CO_RESTRI
+    -- Sexo desde dominios (dominio TIPO_SEXO; ce_dom = código)
+    LEFT JOIN IDORRCC.GETR_DOMINIOS D_SEXO
+        ON D_SEXO.CO_DOMINIO = 'TIPO_SEXO' AND D_SEXO.CE_DOM = A.DE_GENERO
+    -- Observaciones agregadas (lista de DE_OBS para este DNI)
+    LEFT JOIN (
+        SELECT OD.NU_DNI,
+               LISTAGG(RO.DE_OBS, '; ') WITHIN GROUP (ORDER BY OD.CO_OBS) AS LISTA_OBSERVACIONES
+        FROM IDORRCC.GETM_OBSERVACION_DNI OD
+        JOIN IDORRCC.GETR_OBSERVACION RO ON RO.CO_OBS = OD.CO_OBS
+        GROUP BY OD.NU_DNI
+    ) OBS ON OBS.NU_DNI = A.NU_DNI
+    -- Foto: imágenes mayores (por nu_ficha_reg = nu_formulario, ti_ficha_reg = ti_doc_reg_ficha)
+    LEFT JOIN IDORRCC.IDTP_IMAGENES IMG
+        ON IMG.NU_FORMULARIO = A.NU_FICHA_REG AND IMG.TI_DOC_REG_FICHA = NVL(A.TI_FICHA_REG, A.TI_FICHA_IMAG)
+    -- Foto: imágenes menores
+    LEFT JOIN IDORRCC.IDTP_IMAGEN_MENOR IMGM
+        ON IMGM.NU_FORMULARIO = A.NU_FICHA_REG AND IMGM.TI_DOC_REG_FICHA = NVL(A.TI_FICHA_REG, A.TI_FICHA_IMAG)
+;
