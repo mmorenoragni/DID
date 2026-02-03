@@ -1,3 +1,10 @@
+-- =============================================================================
+-- DRAFT: Query Datos Identidad Digital (iterar hasta que funcione)
+-- Copia desde query_datos_identidad_digital.sql; fix: NO_DOM entrecomillado (ORA-00923)
+-- =============================================================================
+
+ALTER SESSION SET CURRENT_SCHEMA = IDORRCC;
+
 SELECT
     -- (01) Código Único de Identificación - Número DNI
     A.NU_DNI AS CUI_DNI,
@@ -15,8 +22,8 @@ SELECT
     TRIM(REPLACE(NVL(U_NACI.DE_UBIGEO_CAPTU, U_NACI.DE_UBIGEO), '/', ' / ')) AS LUGAR_NACIMIENTO,
     -- (08) UBIGEO de nacimiento (código, sin guión; extranjero/nacional)
     REPLACE(NVL(U_NACI.CO_UBIGEO, ''), '-', '') AS UBIGEO_NACIMIENTO,
-    -- (09) Sexo - género registral (GETR_DOMINIOS TIPO_SEXO o GETM_ANI.DE_GENERO)
-    NVL(D_SEXO.NO_DOM, A.DE_GENERO) AS SEXO,
+    -- (09) Sexo - género registral (GETR_DOMINIOS TIPO_SEXO o GETM_ANI.DE_GENERO) [fix: "NO_DOM"]
+    NVL(D_SEXO."NO_DOM", A.DE_GENERO) AS SEXO,
     -- (10) Estado civil
     E.DE_ESTADO_CIVIL AS ESTADO_CIVIL,
     -- (11) Foto: mayor -> IDTP_IMAGENES.MI_FOTO, menor -> IDTP_IMAGEN_MENOR.MI_FOTO_MENOR
@@ -26,7 +33,6 @@ SELECT
     -- (13) Lugar de domicilio (descriptivo)
     TRIM(REPLACE(NVL(U_DOM.DE_UBIGEO_CAPTU, U_DOM.DE_UBIGEO), '/', ' / ')) AS LUGAR_DOMICILIO,
     -- (14) Domicilio - dirección (pref + dirección + número + block, interior, urb, etc.)
-    -- GETR_DOMINIOS puede usarse para decodificar DE_PREF_* (DECODE/REPLACE/TRIM según doc)
     TRIM(
         NVL(TRIM(A.DE_PREF_DIRECCION) || ' ', '') ||
         NVL(TRIM(A.DE_DIRECCION) || ' ', '') ||
@@ -45,7 +51,7 @@ SELECT
     G.DE_GRUPO_FACTOR AS GRUPO_FACTOR_SANGUINEO,
     -- (16) Observaciones (lista de observaciones del DNI)
     OBS.LISTA_OBSERVACIONES AS OBSERVACIONES,
-    -- (17) Restricción (descripción; doc indica DE_CEL con DECODES - aquí DE_RESTRI)
+    -- (17) Restricción
     R.DE_RESTRI AS RESTRICCION,
     -- (18) Fecha de emisión DNIe
     A.FE_EMISION AS FECHA_EMISION_DNIE,
@@ -54,19 +60,15 @@ SELECT
          THEN 'NO CADUCA'
          ELSE TO_CHAR(A.FE_CADUCIDAD, 'DD/MM/YYYY')
     END AS FECHA_CADUCIDAD_DNIE,
-    -- (20) Tipo documento progenitor 1 (padre)
+    -- (20-23) Progenitores
     A.CO_TIPO_DOC_PADRE AS TIPO_DOC_PROGENITOR1,
-    -- (21) Número documento progenitor 1 (padre)
     A.NU_DOC_PADRE AS NUM_DOC_PROGENITOR1,
-    -- (22) Tipo documento progenitor 2 (madre)
     A.CO_TIPO_DOC_MADRE AS TIPO_DOC_PROGENITOR2,
-    -- (23) Número documento progenitor 2 (madre)
     A.NU_DOC_MADRE AS NUM_DOC_PROGENITOR2,
-    -- (25) Nacionalidad - para DNI digital siempre PER/PERUANO
+    -- (25) Nacionalidad
     'PER' AS NACIONALIDAD
 FROM
     IDORRCC.GETM_ANI A
-    -- Ubigeo nacimiento
     LEFT JOIN IDORRCC.GEVW_UBIGEOS U_NACI
         ON U_NACI.CO_DEPARTAMENTO = A.CO_DEPARTAMENTO_NACI
        AND U_NACI.CO_PROVINCIA    = A.CO_PROVINCIA_NACI
@@ -74,7 +76,6 @@ FROM
        AND NVL(U_NACI.CO_PAIS, ' ') = NVL(A.CO_PAIS_NACI, ' ')
        AND NVL(U_NACI.CO_CONTINENE, ' ') = NVL(A.CO_CONTINENTE_NACI, ' ')
        AND NVL(U_NACI.CO_CENTRO_POBLADO, ' ') = NVL(A.CO_CENTRO_POBLADO_NACI, ' ')
-    -- Ubigeo domicilio
     LEFT JOIN IDORRCC.GEVW_UBIGEOS U_DOM
         ON U_DOM.CO_DEPARTAMENTO = A.CO_DEPARTAMENTO_DOMICILIO
        AND U_DOM.CO_PROVINCIA    = A.CO_PROVINCIA_DOMICILIO
@@ -82,19 +83,14 @@ FROM
        AND NVL(U_DOM.CO_PAIS, ' ') = NVL(A.CO_PAIS_DOMICILIO, ' ')
        AND NVL(U_DOM.CO_CONTINENE, ' ') = NVL(A.CO_CONTINENTE_DOMICILIO, ' ')
        AND NVL(U_DOM.CO_CENTRO_POBLADO, ' ') = NVL(A.CO_CENTRO_POBLADO_DOMICILIO, ' ')
-    -- Estado civil
     LEFT JOIN IDORRCC.GETR_ESTADO_CIVIL E
         ON E.CO_ESTADO_CIVIL = A.CO_ESTADO_CIVIL
-    -- Grupo y factor sanguíneo
     LEFT JOIN IDORRCC.GETR_GRUPO_FACTOR_SANGUINEO G
         ON G.CO_GRUPO_FACTOR = A.CO_GRUPO_SANGUINEO
-    -- Restricción
     LEFT JOIN IDORRCC.GETM_RESTRICCION R
         ON R.CO_RESTRI = A.CO_RESTRI
-    -- Sexo desde dominios (dominio TIPO_SEXO; ce_dom = código)
     LEFT JOIN IDORRCC.GETR_DOMINIOS D_SEXO
         ON D_SEXO.CO_DOMINIO = 'TIPO_SEXO' AND D_SEXO.CE_DOM = A.DE_GENERO
-    -- Observaciones agregadas (lista de DE_OBS para este DNI)
     LEFT JOIN (
         SELECT OD.NU_DNI,
                LISTAGG(RO.DE_OBS, '; ') WITHIN GROUP (ORDER BY OD.CO_OBS) AS LISTA_OBSERVACIONES
@@ -102,10 +98,8 @@ FROM
         JOIN IDORRCC.GETR_OBSERVACION RO ON RO.CO_OBS = OD.CO_OBS
         GROUP BY OD.NU_DNI
     ) OBS ON OBS.NU_DNI = A.NU_DNI
-    -- Foto: imágenes mayores (por nu_ficha_reg = nu_formulario, ti_ficha_reg = ti_doc_reg_ficha)
     LEFT JOIN IDORRCC.IDTP_IMAGENES IMG
         ON IMG.NU_FORMULARIO = A.NU_FICHA_REG AND IMG.TI_DOC_REG_FICHA = NVL(A.TI_FICHA_REG, A.TI_FICHA_IMAG)
-    -- Foto: imágenes menores
     LEFT JOIN IDORRCC.IDTP_IMAGEN_MENOR IMGM
         ON IMGM.NU_FORMULARIO = A.NU_FICHA_REG AND IMGM.TI_DOC_REG_FICHA = NVL(A.TI_FICHA_REG, A.TI_FICHA_IMAG)
 ;
