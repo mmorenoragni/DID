@@ -1,8 +1,3 @@
--- =============================================================================
--- DRAFT: Query Datos Identidad Digital (iterar hasta que funcione)
--- Esquemas: IDOTABMAESTRA (GETM_*, GETR_*, GEVW_*), IMAGADM (IDTP_*)
--- =============================================================================
-
 SELECT
     -- (01) Código Único de Identificación - Número DNI
     A.NU_DNI AS CUI_DNI,
@@ -21,7 +16,7 @@ SELECT
     -- (08) UBIGEO de nacimiento (código, sin guión; extranjero/nacional)
     REPLACE(NVL(U_NACI.CO_UBIGEO, ''), '-', '') AS UBIGEO_NACIMIENTO,
     -- (09) Sexo - género registral (GETR_DOMINIOS TIPO_SEXO o GETM_ANI.DE_GENERO) [fix: "NO_DOM"]
-    NVL(D_SEXO."NO_DOM", A.DE_GENERO) AS SEXO,
+    NVL(D_SEXO."DE_DOM", A.DE_GENERO) AS SEXO,
     -- (10) Estado civil
     E.DE_ESTADO_CIVIL AS ESTADO_CIVIL,
     -- (11) Foto: mayor -> IDTP_IMAGENES.IM_FOTO, menor -> IDTP_IMAGEN_MENOR.IM_FOTO_MENOR
@@ -34,7 +29,7 @@ SELECT
     TRIM(
         NVL(TRIM(A.DE_PREF_DIRECCION) || ' ', '') ||
         NVL(TRIM(A.DE_DIRECCION) || ' ', '') ||
-        NVL(TRIM(A."NU_DIRECCION") || ' ', '') ||
+        NVL(TRIM(A.NU_DIRECCION) || ' ', '') ||
         NVL(TRIM(A.DE_BLOCK_CHALET) || ' ', '') ||
         NVL(TRIM(A.DE_INTERIOR) || ' ', '') ||
         NVL(TRIM(A.DE_URBANIZACION) || ' ', '') ||
@@ -88,7 +83,7 @@ FROM
     LEFT JOIN IDOTABMAESTRA.GETM_RESTRICCION R
         ON R.CO_RESTRI = A.CO_RESTRI
     LEFT JOIN IDOTABMAESTRA.GETR_DOMINIOS D_SEXO
-        ON D_SEXO.CO_DOMINIO = 'TIPO_SEXO' AND D_SEXO.DE_DOM = A.DE_GENERO
+        ON D_SEXO.NO_DOM = 'TIPO_SEXO' AND D_SEXO.CO_DOMINIO = A.DE_GENERO
     -- Observaciones (Oracle 10g: SYS_CONNECT_BY_PATH en lugar de LISTAGG)
     LEFT JOIN (
         SELECT NU_DNI,
