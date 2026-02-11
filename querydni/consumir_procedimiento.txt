@@ -1,8 +1,74 @@
--- 1. Declaras una variable de tipo REFCURSOR
-VAR mi_cursor REFCURSOR;
+SET SERVEROUTPUT ON;
 
--- 2. Ejecutas el procedimiento pasando el DNI y la variable (con dos puntos delante)
-EXEC SP_GET_DATOS_CIUDADANO('42429440', :mi_cursor);
+DECLARE
+    v_cursor  SYS_REFCURSOR;
+    
+    -- Variables basadas en los tipos de datos de la tabla GETM_ANI
+    v_dni             IDOTABMAESTRA.GETM_ANI.NU_DNI%TYPE;
+    v_nombres         IDOTABMAESTRA.GETM_ANI.PRENOM_INSCRITO%TYPE;
+    v_apellido_p      IDOTABMAESTRA.GETM_ANI.AP_PRIMER%TYPE;
+    v_apellido_m      IDOTABMAESTRA.GETM_ANI.AP_SEGUNDO%TYPE;
+    v_f_nacimiento    IDOTABMAESTRA.GETM_ANI.FE_NACIMIENTO%TYPE;
+    
+    -- Variables para campos calculados o de otras tablas (usamos tipos genéricos)
+    v_lugar_nac       VARCHAR2(500);
+    v_ubigeo_nac      VARCHAR2(100);
+    v_sexo            VARCHAR2(100);
+    v_est_civil       VARCHAR2(100);
+    v_foto            BLOB; -- Las fotos en IDTP_IMAGENES suelen ser BLOB
+    v_ubigeo_dom      VARCHAR2(100);
+    v_lugar_dom       VARCHAR2(500);
+    v_domicilio       VARCHAR2(1000);
+    v_grupo_sangre    VARCHAR2(100);
+    v_observaciones   VARCHAR2(4000);
+    v_restriccion     VARCHAR2(500);
+    v_f_emision       DATE;
+    v_f_caducidad     VARCHAR2(20); -- Por la lógica de "NO CADUCA"
+    v_prog1_tipo      VARCHAR2(10);
+    v_prog1_num       VARCHAR2(20);
+    v_prog2_tipo      VARCHAR2(10);
+    v_prog2_num       VARCHAR2(20);
+    v_nacionalidad    VARCHAR2(10);
+    
+    v_existe          BOOLEAN := FALSE;
+BEGIN
+    -- 1. Llamada al procedimiento
+    SP_GET_DATOS_CIUDADANO('42429440', v_cursor);
 
--- 3. Imprimes el contenido del cursor
-PRINT mi_cursor;
+    -- 2. Recorrido del cursor
+    LOOP
+        -- El orden del FETCH debe ser EXACTAMENTE igual al orden del SELECT en el SP
+        FETCH v_cursor INTO 
+            v_dni, v_nombres, v_apellido_p, v_apellido_m, v_apellido_m, -- notar duplicado si el SP tiene apellido casada
+            v_f_nacimiento, v_lugar_nac, v_ubigeo_nac, v_sexo, v_est_civil,
+            v_foto, v_ubigeo_dom, v_lugar_dom, v_domicilio, v_grupo_sangre,
+            v_observaciones, v_restriccion, v_f_emision, v_f_caducidad,
+            v_prog1_tipo, v_prog1_num, v_prog2_tipo, v_prog2_num, v_nacionalidad;
+            
+        EXIT WHEN v_cursor%NOTFOUND;
+
+        v_existe := TRUE;
+        DBMS_OUTPUT.PUT_LINE('--- DATOS ENCONTRADOS ---');
+        DBMS_OUTPUT.PUT_LINE('DNI: ' || v_dni);
+        DBMS_OUTPUT.PUT_LINE('Nombre Completo: ' || v_nombres || ' ' || v_apellido_p || ' ' || v_apellido_m);
+        DBMS_OUTPUT.PUT_LINE('Domicilio: ' || v_domicilio);
+        DBMS_OUTPUT.PUT_LINE('Restricción: ' || v_restriccion);
+        DBMS_OUTPUT.PUT_LINE('-------------------------');
+    END LOOP;
+
+    -- 3. Validación de existencia
+    IF NOT v_existe THEN
+        DBMS_OUTPUT.PUT_LINE('No se encontró información para el DNI indicado.');
+    END IF;
+
+    -- 4. Cierre del cursor
+    CLOSE v_cursor;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        IF v_cursor%ISOPEN THEN
+            CLOSE v_cursor;
+        END IF;
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
