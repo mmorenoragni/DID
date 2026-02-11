@@ -1,12 +1,8 @@
-DECLARE
-    l_cursor SYS_REFCURSOR;
-BEGIN
-    -- Llamada al SP
-    SP_GET_DATOS_CIUDADANO(
-        p_nu_dni => '42429440',
-        p_recordset => l_cursor
-    );
+-- 1. Declaras una variable de tipo REFCURSOR
+VAR mi_cursor REFCURSOR;
 
-    -- En SQL Developer, esto abrirá automáticamente una pestaña de salida con los resultados
-    DBMS_SQL.RETURN_RESULT(l_cursor);
-END;
+-- 2. Ejecutas el procedimiento pasando el DNI y la variable (con dos puntos delante)
+EXEC SP_GET_DATOS_CIUDADANO('42429440', :mi_cursor);
+
+-- 3. Imprimes el contenido del cursor
+PRINT mi_cursor;
