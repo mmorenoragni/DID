@@ -1,0 +1,12 @@
+DECLARE
+    l_cursor SYS_REFCURSOR;
+BEGIN
+    -- Llamada al SP
+    SP_GET_DATOS_CIUDADANO(
+        p_nu_dni => '42429440',
+        p_recordset => l_cursor
+    );
+
+    -- En SQL Developer, esto abrirá automáticamente una pestaña de salida con los resultados
+    DBMS_SQL.RETURN_RESULT(l_cursor);
+END;
