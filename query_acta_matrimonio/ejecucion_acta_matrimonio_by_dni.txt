@@ -1,0 +1,22 @@
+SET SERVEROUTPUT ON;
+DECLARE
+    v_cursor SYS_REFCURSOR;
+    v_fecha  DATE;
+    v_lugar  VARCHAR2(200);
+    v_doc1   VARCHAR2(20);
+    v_doc2   VARCHAR2(20);
+    -- ... (otras variables si necesitas imprimirlas)
+BEGIN
+    -- Probamos buscando el acta donde el DNI 12345678 sea cualquiera de los cónyuges
+    SP_ACTA_MATRIMONIO_BY_DOC('12345678', v_cursor);
+
+    LOOP
+        FETCH v_cursor INTO v_fecha, v_lugar, v_doc1, v_doc1, v_doc2, v_doc2, v_doc1, v_doc1;
+        -- Nota: Ajusta la cantidad de variables según el SELECT para evitar ORA-06504
+        EXIT WHEN v_cursor%NOTFOUND;
+
+        DBMS_OUTPUT.PUT_LINE('Matrimonio en: ' || v_lugar || ' el ' || v_fecha);
+    END LOOP;
+    CLOSE v_cursor;
+END;
+/
