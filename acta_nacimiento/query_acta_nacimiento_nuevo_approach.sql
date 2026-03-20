@@ -26,14 +26,13 @@ LEFT JOIN IDORRCC.RCTM_ESCANEO I
     AND I.IM_ACTA IS NOT NULL
 WHERE
     N.CO_ESTADO_ACTA_NACIMIENTO = '1'
-    AND
-
-
-escenario 1
-fecha de nacimient, ubigeo nacimiento, nombres, apellidos(materno y paterno)
-traer datos de la tabla GETM_ANI. => escenario optimo
-
-escenario 2
-No encontramos datos en la GETM_ANI en este caso debemos buscar en la DB RCTM_NACIMIENTOS con los datos pero
-tienen que ser agregados manualmente (validar ya que puede no ser posible)
-
+    AND N.PRIMER_APELLIDO = p_primer_apellido,
+    AND N.DE_SEGUNDO_APELLIDO = p_segundo_apellido,
+    AND N.DE_PRE_NOMBRES = p_pre_nombres,
+    AND N.FE_NACIMIENTO = p_fecha_nacimiento,
+    AND N.CO_NACIDO_NATURAL_CONT = p_nac_nat_cont,
+    AND N.CO_NACIDO_NATURAL_PAIS = p_nac_nat_pais,
+    AND N.CO_CO_NACIDO_NATURAL_DPTO = p_nac_nat_dpto,
+    AND N.CO_CO_NACIDO_NATURAL_PROV = p_nac_nat_prov,
+    AND N.CO_CO_NACIDO_NATURAL_DIST = p_nac_nat_dist,
+    AND N.CO_CO_NACIDO_NATURAL_LOCA = p_nac_nat_loca;
