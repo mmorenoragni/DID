@@ -12,7 +12,7 @@ DECLARE
     v_co_distrito_naci        IDOTABMAESTRA.GETM_ANI.CO_DISTRITO_NACI%TYPE;
     v_co_centro_poblado_naci  IDOTABMAESTRA.GETM_ANI.CO_CENTRO_POBLADO_NACI%TYPE;
 BEGIN
-    get_datos_dni_by_docnum('42429440', v_cursor);
+    GET_DATOS_DNI_BYDOCNUM('17639396', v_cursor);
     LOOP
         FETCH v_cursor INTO
             v_ap_primer, v_ap_segundo, v_prenom_inscrito, v_fe_nacimiento,
