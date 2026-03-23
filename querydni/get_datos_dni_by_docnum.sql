@@ -1,0 +1,21 @@
+CREATE OR REPLACE PROCEDURE get_datos_dni_by_docnum (
+    p_docnum IN VARCHAR2,
+    p_recordset OUT SYS_REFCURSOR
+) AS
+BEGIN
+    OPEN p_recordset FOR
+    SELECT
+        A.AP_PRIMER,
+        A.AP_SEGUNDO,
+        A.PRENOM_INSCRITO,
+        A.FE_NACIMIENTO,
+        A.CO_CONTINENTE_NACI,
+        A.CO_PAIS_NACI,
+        A.CO_DEPARTAMENTO_NACI,
+        A.CO_PROVINCIA_NACI,
+        A.CO_DISTRITO_NACI,
+        A.CO_CENTRO_POBLADO_NACI
+    FROM IDOTABMAESTRA.GETM_ANI A
+    WHERE A.NU_DNI = p_docnum;
+END;
+/
