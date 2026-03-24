@@ -59,23 +59,4 @@ LEFT JOIN IDORRCC.RCTM_ESCANEO I ON I.NU_ACTA=N.NU_ACTA_NACIMIENTO  AND I.CO_TIP
 WHERE
 
  N.CO_ESTADO_ACTA_NACIMIENTO='1'
-
- AND N.DE_PRIMER_APELLIDO = p_ap_primer
-
- AND N.DE_SEGUNDO_APELLIDO = p_ap_segundo
-
- AND N.DE_PRE_NOMBRES = p_prenom_inscrito
-
- AND N.FE_NACIMIENTO = p_fe_nacimiento
-
- AND N.CO_NACIDO_NATURAL_CONT = p_co_continente_naci
-
- AND N.CO_NACIDO_NATURAL_PAIS = p_co_pais_naci
-
- AND N.CO_NACIDO_NATURAL_DPTO = p_co_departamento_naci
-
- AND N.CO_NACIDO_NATURAL_PROV = p_co_provincia_naci
-
- AND N.CO_NACIDO_NATURAL_DIST = p_co_distrito_naci
-
- AND N.CO_NACIDO_NATURAL_LOCA = p_co_centro_poblado_naci;
+and N.NU_CUI= p_nu_cui;

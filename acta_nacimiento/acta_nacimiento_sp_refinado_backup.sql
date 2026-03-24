@@ -1,14 +1,5 @@
 CREATE OR REPLACE PROCEDURE IDORRCC.SP_OBTENER_ACTA_NACIMIENTO (
-    p_ap_primer IN VARCHAR2,
-    p_ap_segundo IN VARCHAR2,
-    p_prenom_inscrito IN VARCHAR2,
-    p_fe_nacimiento IN DATE,
-    p_co_continente_naci IN VARCHAR2,
-    p_co_pais_naci IN VARCHAR2,
-    p_co_departamento_naci IN VARCHAR2,
-    p_co_provincia_naci IN VARCHAR2,
-    p_co_distrito_naci IN VARCHAR2,
-    p_co_centro_poblado_naci IN VARCHAR2,
+    p_nu_cui IN VARCHAR2,
     p_recordset OUT SYS_REFCURSOR
 ) AS
 BEGIN
@@ -69,15 +60,6 @@ BEGIN
        AND I.IM_ACTA IS NOT NULL
     WHERE
         N.CO_ESTADO_ACTA_NACIMIENTO = '1'
-        AND N.DE_PRIMER_APELLIDO = p_ap_primer
-        AND N.DE_SEGUNDO_APELLIDO = p_ap_segundo
-        AND N.DE_PRE_NOMBRES = p_prenom_inscrito
-        AND N.FE_NACIMIENTO = p_fe_nacimiento
-        AND N.CO_NACIDO_NATURAL_CONT = p_co_continente_naci
-        AND N.CO_NACIDO_NATURAL_PAIS = p_co_pais_naci
-        AND N.CO_NACIDO_NATURAL_DPTO = p_co_departamento_naci
-        AND N.CO_NACIDO_NATURAL_PROV = p_co_provincia_naci
-        AND N.CO_NACIDO_NATURAL_DIST = p_co_distrito_naci
-        AND N.CO_NACIDO_NATURAL_LOCA = p_co_centro_poblado_naci;
+        AND N.NU_CUI = p_nu_cui;
 END;
 /
