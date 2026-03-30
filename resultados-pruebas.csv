@@ -1,0 +1,7 @@
+"FECHA_LOG";"MENSAJE_LOG"
+"30/03/2026 07:39:00";"tx=ObtenerDatosDNId metodo=POST ip=73.138.162.162 estrategia=filiacion status=403 resultado=ERROR codigo=SIN_FILIACION dni_solicitante=09161242 dni_solicitado=77967037"
+"30/03/2026 07:39:28";"tx=ObtenerDatosDNId metodo=POST ip=73.138.162.162 estrategia=filiacion status=403 resultado=ERROR codigo=ACCESO_DENEGADO dni_solicitante=17639396 dni_solicitado=77967038"
+"30/03/2026 07:39:57";"tx=ObtenerDatosDNId metodo=POST ip=73.138.162.162 estrategia=filiacion status=403 resultado=ERROR codigo=ACCESO_DENEGADO dni_solicitante=17639397 dni_solicitado=77967037"
+"30/03/2026 07:42:32";"tx=ObtenerDatosDNId metodo=POST ip=73.138.162.162 estrategia=dni_filiacion status=200 resultado=OK codigo= dni_solicitante=42992664 dni_solicitado=91948486"
+"30/03/2026 08:36:21";"tx=ObtenerDatosDNId metodo=POST ip=56.126.12.25 estrategia=dni_sin_filiacion status=200 resultado=OK codigo= dni_solicitante=42992664 dni_solicitado=42992664"
+"30/03/2026 08:38:46";"tx=ObtenerDatosDNId metodo=POST ip=56.126.12.25 estrategia=dni_sin_filiacion status=200 resultado=OK codigo= dni_solicitante=42992664 dni_solicitado=42992664"
