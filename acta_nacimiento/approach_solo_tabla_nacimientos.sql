@@ -10,4 +10,12 @@ FROM
     IDORRCC.RCTM_NACIMIENTOS N
 WHERE
     N.CO_ESTADO_ACTA_NACIMIENTO = '1'
-    AND
+    AND N.PRIMER_APELLIDO = p_primer_apellido,
+    AND N.DE_SEGUNDO_APELLIDO = p_segundo_apellido,
+    AND N.DE_PRE_NOMBRES = p_pre_nombres,
+    AND N.CO_NACIDO_NATURAL_CONT = p_nac_nat_cont,
+    AND N.CO_NACIDO_NATURAL_PAIS = p_nac_nat_pais,
+    AND N.CO_CO_NACIDO_NATURAL_DPTO = p_nac_nat_dpto,
+    AND N.CO_CO_NACIDO_NATURAL_PROV = p_nac_nat_prov,
+    AND N.CO_CO_NACIDO_NATURAL_DIST = p_nac_nat_dist,
+    AND N.CO_CO_NACIDO_NATURAL_LOCA = p_nac_nat_loca;
