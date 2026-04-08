@@ -96,8 +96,23 @@ CREATE OR REPLACE PACKAGE BODY DDPK_DNI_DNID AS
          AND IMGM.TI_DOC_REG_FICHA = A.TI_FICHA_IMAG
        WHERE A.NU_DNI = p_nu_dni;
   END DDSP_GET_DATOS_COMPLETO_DNI;
-  PROCEDURE DDSP_INSERT_DNID_LOG(p_mensaje_log IN dnid_logs.mensaje_log%TYPE) AS
-  BEGIN
-    INSERT INTO dnid_logs (mensaje_log) VALUES (p_mensaje_log);
-  END DDSP_INSERT_DNID_LOG;
+  PROCEDURE DDSP_INSERT_DNID_LOG(
+  p_id              IN dnid_logs.id%TYPE,
+  p_mensaje_log     IN dnid_logs.mensaje_log%TYPE,
+  p_dni_solicitante IN dnid_logs.dni_solicitante%TYPE DEFAULT NULL,
+  p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE  DEFAULT NULL
+) AS
+BEGIN
+  INSERT INTO dnid_logs (
+    id,
+    mensaje_log,
+    dni_solicitante,
+    dni_solicitado
+  ) VALUES (
+    p_id,
+    p_mensaje_log,
+    p_dni_solicitante,
+    p_dni_solicitado
+  );
+END DDSP_INSERT_DNID_LOG;
 END;
