@@ -63,5 +63,10 @@ CREATE OR REPLACE PACKAGE DDPK_DNI_DNID AS
   -- Requerimientos           : Conexión con la base de datos DNI - {a definifr}.
   -- Parámetros               : p_nu_dni                 (IN)  : NUMERO DE DNIe
   ----------------------------------------------------------------------------------------------------
-  PROCEDURE DDSP_INSERT_DNID_LOG(p_mensaje_log IN dnid_logs.mensaje_log%TYPE);
+  PROCEDURE DDSP_INSERT_DNID_LOG(
+  p_id              IN dnid_logs.id%TYPE,
+  p_mensaje_log     IN dnid_logs.mensaje_log%TYPE,
+  p_dni_solicitante IN dnid_logs.dni_solicitante%TYPE DEFAULT NULL,
+  p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE  DEFAULT NULL
+);
 END;
