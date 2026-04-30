@@ -81,10 +81,18 @@ CREATE OR REPLACE PACKAGE DDPK_DNI_DNID AS
   -- Parámetros               : p_mensaje_log                 (IN)  : Mensaje con el contenido del log que se quiere guardar
   -- Parámetros               : p_dni_solicitante             (IN)  : Número de documento del solicitante de la credencial
   -- Parámetros               : p_dni_solicitado              (IN)  : Número de documento solicitado para imprimir la credencial
+  -- Parámetros               : p_perfil_solicitado           (IN)  : Perfil solicitado (dni o dni_filiacion)
+  -- Parámetros               : p_ip_address                  (IN)  : IP de origen de la petición
+  -- Parámetros               : p_status                      (IN)  : Estado de la petición (OK/ERROR)
+  -- Parámetros               : p_error_message               (IN)  : Mensaje de error legible, null si fue exitoso
   ----------------------------------------------------------------------------------------------------
   PROCEDURE DDSP_INSERT_DNID_LOG(p_id              IN dnid_logs.id%TYPE,
                                  p_mensaje_log     IN dnid_logs.mensaje_log%TYPE,
                                  p_dni_solicitante IN dnid_logs.dni_solicitante%TYPE DEFAULT NULL,
-                                 p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE DEFAULT NULL);
+                                 p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE DEFAULT NULL,
+                                 p_perfil_solicitado IN dnid_logs.perfil_solicitado%TYPE DEFAULT NULL,
+                                 p_ip_address      IN dnid_logs.ip_address%TYPE DEFAULT NULL,
+                                 p_status          IN dnid_logs.status%TYPE DEFAULT NULL,
+                                 p_error_message   IN dnid_logs.error_message%TYPE DEFAULT NULL);
   ----------------------------------------------------------------------------------------------------
 END;

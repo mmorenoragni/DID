@@ -177,12 +177,16 @@ CREATE OR REPLACE PACKAGE BODY DDPK_DNI_DNID AS
   PROCEDURE DDSP_INSERT_DNID_LOG(p_id              IN dnid_logs.id%TYPE,
                                  p_mensaje_log     IN dnid_logs.mensaje_log%TYPE,
                                  p_dni_solicitante IN dnid_logs.dni_solicitante%TYPE DEFAULT NULL,
-                                 p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE DEFAULT NULL) AS
+                                 p_dni_solicitado  IN dnid_logs.dni_solicitado%TYPE DEFAULT NULL,
+                                 p_perfil_solicitado IN dnid_logs.perfil_solicitado%TYPE DEFAULT NULL,
+                                 p_ip_address      IN dnid_logs.ip_address%TYPE DEFAULT NULL,
+                                 p_status          IN dnid_logs.status%TYPE DEFAULT NULL,
+                                 p_error_message   IN dnid_logs.error_message%TYPE DEFAULT NULL) AS
   BEGIN
     INSERT INTO dnid_logs
-      (id, mensaje_log, dni_solicitante, dni_solicitado)
+      (id, mensaje_log, dni_solicitante, dni_solicitado, perfil_solicitado, ip_address, status, error_message)
     VALUES
-      (p_id, p_mensaje_log, p_dni_solicitante, p_dni_solicitado);
+      (p_id, p_mensaje_log, p_dni_solicitante, p_dni_solicitado, p_perfil_solicitado, p_ip_address, p_status, p_error_message);
   END DDSP_INSERT_DNID_LOG;
   /*---------------------------------------------------------------------------*/
 END;

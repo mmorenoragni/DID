@@ -5,7 +5,11 @@ create table DNID_LOGS
   mensaje_log     VARCHAR2(400) not null,
   id              VARCHAR2(36),
   dni_solicitante VARCHAR2(8),
-  dni_solicitado  VARCHAR2(8)
+  dni_solicitado  VARCHAR2(8),
+  perfil_solicitado VARCHAR2(20),
+  ip_address      VARCHAR2(45),
+  status          VARCHAR2(10),
+  error_message   VARCHAR2(400)
 )
 tablespace TBL_IDODNIDIGITAL_DTA_01
   pctfree 10
@@ -20,6 +24,14 @@ tablespace TBL_IDODNIDIGITAL_DTA_01
 -- Add comments to the table 
 comment on table DNID_LOGS
   is 'tabla de logs';
+comment on column DNID_LOGS.PERFIL_SOLICITADO
+  is 'perfil solicitado: dni o dni_filiacion';
+comment on column DNID_LOGS.IP_ADDRESS
+  is 'direccion IP de origen de la peticion';
+comment on column DNID_LOGS.STATUS
+  is 'resultado de la operacion: OK o ERROR';
+comment on column DNID_LOGS.ERROR_MESSAGE
+  is 'mensaje de error legible; null en caso exitoso';
 -- Create/Recreate indexes 
 create index IDX_DNID_LOGS_FECHA_LOG on DNID_LOGS (FECHA_LOG)
   tablespace TBL_IDODNIDIGITAL_DTA_01
