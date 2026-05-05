@@ -24,7 +24,17 @@ tablespace TBL_IDODNIDIGITAL_DTA_01
 -- Add comments to the table 
 comment on table DNID_LOGS
   is 'tabla de logs';
--- Add comments to the columns 
+-- Add comments to the columns
+comment on column DNID_LOGS.fecha_log
+  is 'fecha y hora del registro; valor por defecto sysdate';
+comment on column DNID_LOGS.mensaje_log
+  is 'texto descriptivo del evento o traza almacenada en el log';
+comment on column DNID_LOGS.id
+  is 'identificador unico del registro (p. ej. uuid de 36 caracteres)';
+comment on column DNID_LOGS.dni_solicitante
+  is 'numero de documento del usuario que solicita la operacion';
+comment on column DNID_LOGS.dni_solicitado
+  is 'numero de documento sobre el que aplica la operacion registrada';
 comment on column DNID_LOGS.perfil_solicitado
   is 'perfil solicitado: dni o dni_filiacion';
 comment on column DNID_LOGS.ip_address
@@ -33,8 +43,33 @@ comment on column DNID_LOGS.status
   is 'resultado de la operacion: OK o ERROR';
 comment on column DNID_LOGS.error_message
   is 'mensaje de error legible; null en caso exitoso';
--- Create/Recreate indexes 
+-- Create/Recreate indexes
+-- Indice 1: FECHA_LOG
 create index IDX_DNID_LOGS_FECHA_LOG on DNID_LOGS (FECHA_LOG)
+  tablespace TBL_IDODNIDIGITAL_DTA_01
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    minextents 1
+    maxextents unlimited
+  );
+-- Indice 2: DNI_SOLICITANTE
+create index IDX_DNID_LOGS_DNI_SOLICITANTE on DNID_LOGS (DNI_SOLICITANTE)
+  tablespace TBL_IDODNIDIGITAL_DTA_01
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    minextents 1
+    maxextents unlimited
+  );
+-- Indice 3: DNI_SOLICITADO
+create index IDX_DNID_LOGS_DNI_SOLICITADO on DNID_LOGS (DNI_SOLICITADO)
   tablespace TBL_IDODNIDIGITAL_DTA_01
   pctfree 10
   initrans 2
